@@ -54,18 +54,42 @@
   const CHORD_BY_ID = Object.create(null);
   CHORDS.forEach((c) => { CHORD_BY_ID[c.id] = c; });
 
-  /* The catalogue lives in scale-catalog.js; adding a scale is one entry there.
-     Triads join the scale list too, so each can be viewed across the neck. */
-  const TRIAD_SCALES = CHORDS.filter((c) => c.family === "triad").map((c) => ({
-    id: "triad-" + c.id,
-    name: c.name + " Triad",
-    aka: c.aka,
-    intervals: c.intervals,
-    degrees: c.degrees,
-    isChord: true
-  }));
+  /*
+   * Every chord is also an arpeggio the player can view across the neck.
+   * As a "scale" its tones are folded into one octave and sorted (a 9th
+   * becomes the note a tone above the root, still labelled 9); `stack`
+   * keeps the real voicing so playback runs 1 3 5 7 9.
+   */
+  const FAMILIES = Catalog.CHORD_FAMILIES;
 
-  const SCALES = Catalog.SCALES.map(normalise).concat(TRIAD_SCALES);
+  const ARPEGGIO_SCALES = CHORDS.map((c) => {
+    const labels = degreeLabels(c);
+    const folded = c.intervals
+      .map((iv, i) => ({ iv: mod12(iv), label: labels[i] }))
+      .sort((a, b) => a.iv - b.iv);
+    return {
+      id: (c.family === "triad" ? "triad-" : "arp-") + c.id,
+      name: c.name + (c.family === "triad" ? " Triad" : " Arpeggio"),
+      aka: c.aka,
+      intervals: folded.map((x) => x.iv),
+      degrees: folded.map((x) => x.label),
+      stack: c.intervals,
+      family: c.family,
+      isChord: true
+    };
+  });
+
+  /* The catalogue lives in scale-catalog.js; adding a scale is one entry there. */
+  const PLAIN_SCALES = Catalog.SCALES.map(normalise);
+
+  // Some arpeggios hold exactly a scale's notes (a 9th arpeggio is the
+  // dominant pentatonic); say so, since that is worth knowing.
+  ARPEGGIO_SCALES.forEach((a) => {
+    const twin = PLAIN_SCALES.find((sc) => sc.intervals.join() === a.intervals.join());
+    if (twin) a.aka = a.aka.concat("Same notes as " + twin.name);
+  });
+
+  const SCALES = PLAIN_SCALES.concat(ARPEGGIO_SCALES);
 
   const SCALE_BY_ID = Object.create(null);
   SCALES.forEach((s) => { SCALE_BY_ID[s.id] = s; });
@@ -80,7 +104,7 @@
 
   function degreeLabels(scale) {
     return scale.intervals.map((iv, i) =>
-      (scale.degrees && scale.degrees[i]) || CHROMATIC_DEGREES[iv]);
+      (scale.degrees && scale.degrees[i]) || CHROMATIC_DEGREES[mod12(iv)]);
   }
 
   /**
@@ -90,19 +114,19 @@
   const GROUPS = Catalog.GROUPS.map((g) => ({
     id: g.id,
     name: g.name,
+    kind: "scale",
     items: g.items.map((item) => {
       const id = Array.isArray(item) ? item[0] : item;
       const scale = SCALE_BY_ID[id];
       return { scale, label: Array.isArray(item) ? item[1] : scale.name };
     })
-  }));
-
-  // Triads sit right after Essentials.
-  GROUPS.splice(1, 0, {
-    id: "triads",
-    name: "Triads",
-    items: TRIAD_SCALES.map((t) => ({ scale: t, label: t.name }))
-  });
+  })).concat(FAMILIES.map((f) => ({
+    // Arpeggio groups: one per chord family (Triads, 7ths, 9ths ...).
+    id: f.id === "triad" ? "triads" : "arp-" + f.id,
+    name: f.arpeggio,
+    kind: "arpeggio",
+    items: ARPEGGIO_SCALES.filter((a) => a.family === f.id).map((a) => ({ scale: a, label: a.name }))
+  })));
 
   /** "♭3" -> 3, "♯4" -> 4, "5" -> 5 */
   function degreeNumber(label) {
@@ -308,7 +332,8 @@
         const awkward = Math.abs(sp.alter) > 1 || (sp.alter !== 0 && LETTER_PC.indexOf(sp.pc) !== -1);
         if (!awkward) note = formatSpelled(sp);
       }
-      return { interval: iv, pc, degree: labels[i], note, inScale: inKey.inScale };
+      // interval: within the octave (for lookups); semitones: as voiced.
+      return { interval: mod12(iv), semitones: iv, pc, degree: labels[i], note, inScale: inKey.inScale };
     });
 
     const byInterval = [];
@@ -338,8 +363,8 @@
   function romanNumeral(degreeLabel, chord) {
     const acc = degreeLabel.replace(/\d+/g, "");
     const numeral = ROMAN[(degreeNumber(degreeLabel) - 1) % 7];
-    const iv = chord.intervals;
-    const minorish = iv.indexOf(3) !== -1 && iv.indexOf(4) === -1;
+    const pcs = chord.intervals.map(mod12);
+    const minorish = pcs.indexOf(3) !== -1 && pcs.indexOf(4) === -1;
     return acc + (minorish ? numeral.toLowerCase() : numeral) + chord.roman;
   }
 
@@ -384,6 +409,7 @@
     SCALES,
     GROUPS,
     CHORDS,
+    FAMILIES,
     mod12,
     getChord,
     createChord,

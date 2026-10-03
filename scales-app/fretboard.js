@@ -97,14 +97,21 @@
    *   direction "up" | "down" | "updown"
    */
   function playbackSequence(key, direction, lowestMidi) {
-    return arpeggio(key.rootPc, key.scale.intervals, direction, lowestMidi);
+    // An arpeggio "scale" plays as voiced (1 3 5 7 9), not folded into an octave.
+    return arpeggio(key.rootPc, key.scale.stack || key.scale.intervals, direction, lowestMidi);
   }
 
-  /** Any interval set from its lowest playable root, one octave, as MIDI. */
+  /**
+   * Any interval set from its lowest playable root, as MIDI. Sets inside one
+   * octave finish on the octave root; extended voicings (9ths, 13ths) end on
+   * their top tone.
+   */
   function arpeggio(rootPc, intervals, direction, lowestMidi) {
     const floor = lowestMidi === undefined ? TUNINGS.standard.strings[0].midi : lowestMidi;
     const rootMidi = floor + ((((rootPc - floor) % 12) + 12) % 12);
-    return applyDirection(intervals.map((iv) => rootMidi + iv).concat(rootMidi + 12), direction);
+    const up = intervals.map((iv) => rootMidi + iv);
+    if (Math.max.apply(null, intervals) < 12) up.push(rootMidi + 12);
+    return applyDirection(up, direction);
   }
 
   function applyDirection(up, direction) {
@@ -152,6 +159,27 @@
     return applyDirection(up, direction);
   }
 
+  /**
+   * Shapes: one box per tone of the set on the low E string, the box starting
+   * at that fret. For a pentatonic this gives the five familiar boxes; for an
+   * arpeggio, one shape per chord tone - the same set every octave.
+   * Returns [{ start, pc }] in fret order.
+   */
+  function shapeStarts(board, pitchClasses, span) {
+    const wanted = new Set(pitchClasses.map((pc) => ((pc % 12) + 12) % 12));
+    const seen = new Set();
+    const out = [];
+    for (let f = 0; f <= board.fretCount; f++) {
+      const pc = board.pitchClassAt(0, f);
+      if (!wanted.has(pc)) continue;
+      const box = clampFocus(f, span, board.fretCount);
+      if (seen.has(box.start)) continue;
+      seen.add(box.start);
+      out.push({ start: box.start, pc });
+    }
+    return out;
+  }
+
   return {
     TUNINGS,
     FRET_RANGES,
@@ -161,6 +189,7 @@
     playbackSequence,
     arpeggio,
     clampFocus,
-    positionSequence
+    positionSequence,
+    shapeStarts
   };
 });

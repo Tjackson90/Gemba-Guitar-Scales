@@ -166,8 +166,63 @@
     { id: "7b5",     family: "seventh", name: "Dominant 7♭5", symbol: "7♭5", roman: "7♭5", intervals: [0, 4, 6, 10] },
     { id: "7sus4",   family: "seventh", name: "7sus4",       symbol: "7sus4",       roman: "7sus4", intervals: [0, 5, 7, 10] },
     { id: "6",       family: "seventh", name: "Major 6",     symbol: "6",           roman: "6",     intervals: [0, 4, 7, 9] },
-    { id: "m6",      family: "seventh", name: "Minor 6",     symbol: "m6",          roman: "6",     intervals: [0, 3, 7, 9] }
+    { id: "m6",      family: "seventh", name: "Minor 6",     symbol: "m6",          roman: "6",     intervals: [0, 3, 7, 9] },
+    { id: "7sus2",   family: "seventh", name: "7sus2",       symbol: "7sus2",       roman: "7sus2", intervals: [0, 2, 7, 10] },
+    { id: "m7#5",    family: "seventh", name: "Minor 7♯5", symbol: "m7♯5", roman: "7♯5", intervals: [0, 3, 8, 10], degrees: "1 b3 #5 b7" },
+    { id: "maj7b5",  family: "seventh", name: "Major 7♭5", symbol: "maj7♭5", roman: "maj7♭5", intervals: [0, 4, 6, 11] },
+    { id: "dimmaj7", family: "seventh", name: "Diminished Major 7", symbol: "°(maj7)", roman: "°(maj7)", intervals: [0, 3, 6, 11] },
+
+    /*
+     * Extended and altered chords are written as stacked voicings - the 9th
+     * is 14 semitones up, not 2 - so arpeggios run 1 3 5 7 9 as played.
+     * Their degrees are always spelled out.
+     */
+
+    /* ---- ninths and added tones ---- */
+    { id: "add9",    family: "ninth", name: "Add 9",         symbol: "add9",        roman: "add9",  intervals: [0, 4, 7, 14],         degrees: "1 3 5 9" },
+    { id: "madd9",   family: "ninth", name: "Minor Add 9",   symbol: "m(add9)",     roman: "(add9)", intervals: [0, 3, 7, 14],        degrees: "1 b3 5 9" },
+    { id: "6/9",     family: "ninth", name: "6/9",           symbol: "6/9",         roman: "6/9",   intervals: [0, 4, 7, 9, 14],      degrees: "1 3 5 6 9" },
+    { id: "m6/9",    family: "ninth", name: "Minor 6/9",     symbol: "m6/9",        roman: "6/9",   intervals: [0, 3, 7, 9, 14],      degrees: "1 b3 5 6 9" },
+    { id: "maj9",    family: "ninth", name: "Major 9",       symbol: "maj9",        roman: "maj9",  intervals: [0, 4, 7, 11, 14],     degrees: "1 3 5 7 9" },
+    { id: "9",       family: "ninth", name: "Dominant 9",    symbol: "9",           roman: "9",     intervals: [0, 4, 7, 10, 14],     degrees: "1 3 5 b7 9" },
+    { id: "m9",      family: "ninth", name: "Minor 9",       symbol: "m9",          roman: "9",     intervals: [0, 3, 7, 10, 14],     degrees: "1 b3 5 b7 9" },
+    { id: "mmaj9",   family: "ninth", name: "Minor Major 9", symbol: "m(maj9)",     roman: "(maj9)", intervals: [0, 3, 7, 11, 14],    degrees: "1 b3 5 7 9" },
+    { id: "9sus4",   family: "ninth", name: "9sus4",         symbol: "9sus4",       roman: "9sus4", intervals: [0, 5, 7, 10, 14],     degrees: "1 4 5 b7 9" },
+    { id: "m9b5",    family: "ninth", name: "Half-Diminished 9", aka: ["Minor 9♭5"], symbol: "m9♭5", roman: "ø9", intervals: [0, 3, 6, 10, 14], degrees: "1 b3 b5 b7 9" },
+
+    /* ---- elevenths ---- */
+    { id: "add11",   family: "eleventh", name: "Add 11",     symbol: "add11",       roman: "add11", intervals: [0, 4, 7, 17],         degrees: "1 3 5 11" },
+    { id: "11",      family: "eleventh", name: "Dominant 11", symbol: "11",         roman: "11",    intervals: [0, 4, 7, 10, 14, 17], degrees: "1 3 5 b7 9 11" },
+    { id: "m11",     family: "eleventh", name: "Minor 11",   symbol: "m11",         roman: "11",    intervals: [0, 3, 7, 10, 14, 17], degrees: "1 b3 5 b7 9 11" },
+    { id: "maj7#11", family: "eleventh", name: "Major 7♯11", aka: ["Lydian Chord"], symbol: "maj7♯11", roman: "maj7♯11", intervals: [0, 4, 7, 11, 18], degrees: "1 3 5 7 #11" },
+    { id: "maj9#11", family: "eleventh", name: "Major 9♯11", symbol: "maj9♯11", roman: "maj9♯11", intervals: [0, 4, 7, 11, 14, 18], degrees: "1 3 5 7 9 #11" },
+    { id: "7#11",    family: "eleventh", name: "Dominant 7♯11", aka: ["Lydian Dominant Chord"], symbol: "7♯11", roman: "7♯11", intervals: [0, 4, 7, 10, 18], degrees: "1 3 5 b7 #11" },
+
+    /* ---- thirteenths ---- */
+    { id: "13",      family: "thirteenth", name: "Dominant 13", symbol: "13",       roman: "13",    intervals: [0, 4, 7, 10, 14, 21], degrees: "1 3 5 b7 9 13" },
+    { id: "maj13",   family: "thirteenth", name: "Major 13", symbol: "maj13",       roman: "maj13", intervals: [0, 4, 7, 11, 14, 21], degrees: "1 3 5 7 9 13" },
+    { id: "m13",     family: "thirteenth", name: "Minor 13", symbol: "m13",         roman: "13",    intervals: [0, 3, 7, 10, 14, 21], degrees: "1 b3 5 b7 9 13" },
+    { id: "13b9",    family: "thirteenth", name: "13♭9", symbol: "13♭9",  roman: "13♭9", intervals: [0, 4, 7, 10, 13, 21], degrees: "1 3 5 b7 b9 13" },
+    { id: "7b13",    family: "thirteenth", name: "7♭13", symbol: "7♭13",  roman: "7♭13", intervals: [0, 4, 7, 10, 20],   degrees: "1 3 5 b7 b13" },
+
+    /* ---- altered dominants ---- */
+    { id: "7b9",     family: "altered", name: "7♭9",     symbol: "7♭9",    roman: "7♭9", intervals: [0, 4, 7, 10, 13],   degrees: "1 3 5 b7 b9" },
+    { id: "7#9",     family: "altered", name: "7♯9",     aka: ["Hendrix Chord"], symbol: "7♯9", roman: "7♯9", intervals: [0, 4, 7, 10, 15], degrees: "1 3 5 b7 #9" },
+    { id: "7#5#9",   family: "altered", name: "7♯5♯9", symbol: "7♯5♯9", roman: "7♯5♯9", intervals: [0, 4, 8, 10, 15], degrees: "1 3 #5 b7 #9" },
+    { id: "7#5b9",   family: "altered", name: "7♯5♭9", symbol: "7♯5♭9", roman: "7♯5♭9", intervals: [0, 4, 8, 10, 13], degrees: "1 3 #5 b7 b9" },
+    { id: "7b5b9",   family: "altered", name: "7♭5♭9", symbol: "7♭5♭9", roman: "7♭5♭9", intervals: [0, 4, 6, 10, 13], degrees: "1 3 b5 b7 b9" },
+    { id: "7b5#9",   family: "altered", name: "7♭5♯9", symbol: "7♭5♯9", roman: "7♭5♯9", intervals: [0, 4, 6, 10, 15], degrees: "1 3 b5 b7 #9" }
   ];
 
-  return { SCALES, GROUPS, CHORDS };
+  /* Chord families, in display order. "arpeggio" names the scale-browser group. */
+  const CHORD_FAMILIES = [
+    { id: "triad",      name: "Triads",           arpeggio: "Triads" },
+    { id: "seventh",    name: "Sixths & sevenths", arpeggio: "7th & 6th Arpeggios" },
+    { id: "ninth",      name: "Ninths",           arpeggio: "9th Arpeggios" },
+    { id: "eleventh",   name: "Elevenths",        arpeggio: "11th Arpeggios" },
+    { id: "thirteenth", name: "Thirteenths",      arpeggio: "13th Arpeggios" },
+    { id: "altered",    name: "Altered dominants", arpeggio: "Altered Arpeggios" }
+  ];
+
+  return { SCALES, GROUPS, CHORDS, CHORD_FAMILIES };
 });

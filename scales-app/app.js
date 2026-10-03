@@ -61,7 +61,8 @@
     voice: pick(store.get("voice"), Object.keys(Audio.VOICES), "acoustic"),
     ring: pick(store.get("ring"), Object.keys(Audio.RINGS), "short"),
     favorites: loadFavorites(),
-    scaleTab: pick(store.get("scaleTab"), ["all", "favorites"], "all"),
+    scaleTab: pick(store.get("scaleTab") === "all" ? "scales" : store.get("scaleTab"),
+      ["scales", "arpeggios", "favorites"], "scales"),
 
     // Chord-tone overlay. The chord root is kept as an offset from the key's
     // root, so a chosen V chord stays the V when the key changes.
@@ -72,11 +73,26 @@
     // Position focus: a box of frets, the rest of the neck faded behind it.
     focusOn: store.get("focus", "0") === "1",
     focusStart: intOrNull(store.get("focusStart"), 0, 24),
-    focusSpan: Number(pick(store.get("focusSpan"), Fret.FOCUS_SPANS.map(String), "5"))
+    focusSpan: Number(pick(store.get("focusSpan"), Fret.FOCUS_SPANS.map(String), "5")),
+    focusStep: pick(store.get("focusStep"), ["shape", "fret"], "shape")
   };
   if (state.chordId === null || state.chordOffset === null) {
     state.chordId = null;
     state.chordOffset = null;
+  }
+
+  /** Arpeggio tones read in stacked order (1 3 5 7 9), not pitch order. */
+  function degreeNum(label) {
+    return parseInt(String(label).replace(/\D/g, ""), 10) || 1;
+  }
+
+  function inChordOrder(items, labelOf) {
+    return items.slice().sort((a, b) => degreeNum(labelOf(a)) - degreeNum(labelOf(b)));
+  }
+
+  function formulaOf(scale) {
+    const labels = Theory.degreeLabels(scale);
+    return (scale.isChord ? inChordOrder(labels, (l) => l) : labels).join(" ");
   }
 
   function loadFavorites() {
@@ -139,6 +155,7 @@
     syncSeg($("modeSeg"), "mode", state.displayMode);
     syncSeg($("dirSeg2"), "dir", state.direction);
     syncSeg($("spanSeg"), "value", String(state.focusSpan));
+    syncSeg($("stepSeg"), "value", state.focusStep);
 
     const dirBtn = $("dirBtn");
     DIRECTIONS.forEach((d) => dirBtn.classList.toggle("dir-" + d, d === state.direction));
@@ -190,9 +207,18 @@
     legend.appendChild(title);
     legend.classList.toggle("is-chord", !!chord);
 
+    const shape = shapeInfo();
+    if (shape) {
+      const tag = document.createElement("span");
+      tag.className = "legend-shape";
+      tag.textContent = shape;
+      legend.appendChild(tag);
+    }
+
     // With a chord on, the legend lists the chord's tones and their function;
     // a tone the scale lacks is marked so the clash is plain.
-    const tones = chord ? chord.tones : key.tones;
+    const tones = chord ? chord.tones
+      : key.scale.isChord ? inChordOrder(key.tones, (t) => t.degree) : key.tones;
     tones.forEach((t) => {
       const chip = document.createElement("span");
       chip.className = "chip" + (t.interval === 0 ? " is-root" : "") + (chord && !t.inScale ? " is-out" : "");
@@ -243,7 +269,7 @@
       `<span class="scale-pick-formula"></span>`;
     pickBtn.querySelector(".scale-pick-name").textContent = label;
     if (others.length) pickBtn.querySelector(".scale-pick-aka").textContent = others.join(" · ");
-    pickBtn.querySelector(".scale-pick-formula").textContent = Theory.degreeLabels(scale).join(" ");
+    pickBtn.querySelector(".scale-pick-formula").textContent = formulaOf(scale);
 
     const fav = state.favorites.indexOf(scale.id) !== -1;
     const star = document.createElement("button");
@@ -307,7 +333,7 @@
         list.appendChild(section(null, favs.map((s) => scaleRow(s, s.name))));
       }
     } else if (q) {
-      // Searching flattens the groups: each scale once, under its own name.
+      // Searching flattens the groups and looks in both tabs: each scale once.
       const seen = new Set();
       const rows = [];
       Theory.GROUPS.forEach((g) => g.items.forEach((it) => {
@@ -318,7 +344,8 @@
       list.appendChild(rows.length ? section(null, rows)
         : emptyNote("No scales match “" + scaleQuery.trim() + "”."));
     } else {
-      Theory.GROUPS.forEach((g) => {
+      const kind = state.scaleTab === "arpeggios" ? "arpeggio" : "scale";
+      Theory.GROUPS.filter((g) => g.kind === kind).forEach((g) => {
         list.appendChild(section(g.name, g.items.map((it) => scaleRow(it.scale, it.label))));
       });
     }
@@ -401,7 +428,7 @@
     body.appendChild(roots);
 
     const rootName = key.byInterval[chordPickRoot].note;
-    [["triad", "Triads"], ["seventh", "Sixths & sevenths"]].forEach(([family, label]) => {
+    Theory.FAMILIES.map((f) => [f.id, f.name]).forEach(([family, label]) => {
       const sec = document.createElement("section");
       sec.className = "scale-group";
       const h = document.createElement("h3");
@@ -473,7 +500,7 @@
     else if (chordChanged || focusChanged || state.displayMode !== before.displayMode ||
              state.showChromatic !== before.showChromatic) renderBoard();
 
-    if (chordChanged) renderLegend();
+    if (chordChanged || focusChanged) renderLegend();
     if (keyChanged) renderPickers();
     renderToolbar();
     if (focusChanged && state.focusOn) revealFocus();
@@ -497,6 +524,7 @@
     store.set("focus", state.focusOn ? "1" : "0");
     store.set("focusStart", state.focusStart === null ? "" : state.focusStart);
     store.set("focusSpan", state.focusSpan);
+    store.set("focusStep", state.focusStep);
 
     Audio.setVoice(state.voice);
     Audio.setRing(state.ring);
@@ -671,10 +699,11 @@
 
     // In focus mode the arrows walk the box a fret at a time.
     if (f) {
-      left.disabled = f.start <= 0;
-      right.disabled = f.end >= state.fretRange;
-      left.setAttribute("aria-label", "Move the box toward the nut");
-      right.setAttribute("aria-label", "Move the box toward the body");
+      const byShape = state.focusStep === "shape";
+      left.disabled = focusTarget(-1) === null;
+      right.disabled = focusTarget(1) === null;
+      left.setAttribute("aria-label", byShape ? "Previous shape" : "Move the box toward the nut");
+      right.setAttribute("aria-label", byShape ? "Next shape" : "Move the box toward the body");
       left.title = right.title = "";
     } else {
       left.disabled = scroller.scrollLeft <= 1;
@@ -686,10 +715,45 @@
     $("rotateHint").classList.toggle("is-needed", !whole);
   }
 
-  function moveFocus(d) {
+  /** The pitch classes in view: the chord's if one is shown, else the scale's. */
+  function activePcs() {
+    return chord ? chord.tones.map((t) => t.pc) : key.pitchClasses;
+  }
+
+  function shapes() {
+    return board ? Fret.shapeStarts(board, activePcs(), state.focusSpan) : [];
+  }
+
+  /** Where the box goes next in direction d: next shape, or one fret, per the setting. */
+  function focusTarget(d) {
     const f = currentFocus();
-    if (!f) return;
-    set({ focusStart: Fret.clampFocus(f.start + d, state.focusSpan, state.fretRange).start });
+    if (!f) return null;
+    if (state.focusStep === "fret") {
+      const next = Fret.clampFocus(f.start + d, state.focusSpan, state.fretRange).start;
+      return next === f.start ? null : next;
+    }
+    const list = shapes().map((x) => x.start);
+    const next = d > 0 ? list.find((x) => x > f.start) : list.slice().reverse().find((x) => x < f.start);
+    return next === undefined ? null : next;
+  }
+
+  function moveFocus(d) {
+    const next = focusTarget(d);
+    if (next !== null) set({ focusStart: next });
+  }
+
+  /** "Shape 2 of 5 · from ♭3 · frets 3–7", or just the frets off a shape. */
+  function shapeInfo() {
+    const f = currentFocus();
+    if (!f) return null;
+    const list = shapes();
+    const i = list.findIndex((x) => x.start === f.start);
+    const frets = f.start === f.end ? "fret " + f.start : "frets " + f.start + "\u2013" + f.end;
+    if (i === -1) return frets;
+    const from = chord
+      ? chord.byInterval[Theory.mod12(list[i].pc - chord.rootPc)].degree
+      : key.byInterval[Theory.mod12(list[i].pc - key.rootPc)].degree;
+    return "Shape " + (i + 1) + " of " + list.length + " \u00B7 from " + from + " \u00B7 " + frets;
   }
 
   /** Scrolls the neck so the whole box is in view, centring it if it was not. */
@@ -805,7 +869,16 @@
   $("chordBtn").addEventListener("click", (e) => openSheet("chordPage", e.currentTarget));
 
   $("focusBtn").addEventListener("click", () => {
-    set(state.focusOn ? { focusOn: false } : { focusOn: true, focusStart: currentFocusStart() });
+    if (state.focusOn) { set({ focusOn: false }); return; }
+    // Land on a shape: the first one at or after where the box last was.
+    let start = currentFocusStart();
+    if (state.focusStep === "shape") {
+      const list = shapes().map((x) => x.start);
+      const at = list.find((x) => x >= start);
+      if (at !== undefined) start = at;
+      else if (list.length) start = list[list.length - 1];
+    }
+    set({ focusOn: true, focusStart: start });
   });
 
   /** Where a newly switched-on box starts: last place, else the root on low E. */
@@ -863,6 +936,7 @@
 
   bindSeg($("modeSeg"), "mode", (v) => set({ displayMode: v }));
   bindSeg($("spanSeg"), "value", (v) => set({ focusSpan: Number(v) }));
+  bindSeg($("stepSeg"), "value", (v) => set({ focusStep: v }));
   bindSeg($("dirSeg2"), "dir", (v) => set({ direction: v }));
   bindSeg($("themeSeg"), "value", (v) => set({ theme: v }));
   bindSeg($("accSeg"), "value", (v) => set({ preferredAccidental: v }));
@@ -917,6 +991,8 @@
   Audio.setRing(state.ring);
   rebuildKey();
   rebuildChord();
+  // The board model first: the legend and arrows ask it for shapes.
+  board = Fret.createFretboard({ tuning: "standard", fretCount: state.fretRange });
   buildPickers();
   renderPickers();
   renderLegend();

@@ -113,9 +113,11 @@ group("Catalogue integrity");
   const ids = new Set(T.SCALES.map((s) => s.id));
   check("scale ids unique", ids.size === T.SCALES.length);
 
+  // Arpeggios may share a scale's notes on purpose (they say so in aka);
+  // scales among themselves may not.
   const sets = new Map();
   const dupes = [];
-  for (const s of T.SCALES) {
+  for (const s of T.SCALES.filter((x) => !x.isChord)) {
     const k = s.intervals.join(",");
     if (sets.has(k)) dupes.push(`${sets.get(k)} = ${s.id}`);
     sets.set(k, s.id);
@@ -295,10 +297,28 @@ group("Chord catalogue");
   const semis = (l) => T.mod12(MAJOR[(parseInt(l.replace(/\D/g, ""), 10) - 1) % 7] +
     (l.match(/♯/g) || []).length - (l.match(/♭/g) || []).length);
   const bad = [];
-  T.CHORDS.forEach((c) => T.degreeLabels(c).forEach((l, i) => { if (semis(l) !== c.intervals[i]) bad.push(c.id + " " + l); }));
+  T.CHORDS.forEach((c) => T.degreeLabels(c).forEach((l, i) => { if (semis(l) !== T.mod12(c.intervals[i])) bad.push(c.id + " " + l); }));
   check(`all ${T.CHORDS.length} chords: degree names match intervals`, bad.length === 0, bad);
-  const sets = new Set(T.CHORDS.map((c) => c.intervals.join(",")));
+  check("extended degrees count past the octave (9 = 14 semitones up)",
+    T.CHORDS.every((c) => T.degreeLabels(c).every((l, i) =>
+      parseInt(l.replace(/\D/g, ""), 10) <= 7 || c.intervals[i] >= 12)));
+  const sets = new Set(T.CHORDS.map((c) => c.intervals.map(T.mod12).sort((a, b) => a - b).join(",")));
   check("no two chords share an interval set", sets.size === T.CHORDS.length);
+  const arpScales = T.SCALES.filter((x) => x.isChord);
+  check("every chord is also an arpeggio in the browser", arpScales.length === T.CHORDS.length);
+  check("arpeggio groups cover every family",
+    T.FAMILIES.every((f) => T.GROUPS.some((g) => g.kind === "arpeggio" && g.items.some((it) => it.scale.family === f.id))));
+  check("9th arpeggio notes say they match Dominant Pentatonic",
+    T.getScale("arp-9").aka.indexOf("Same notes as Dominant Pentatonic") !== -1);
+  check("G9 arpeggio: G B D F A, degrees 1 3 5 b7 9 in pitch order",
+    same(notes(key(PC.G, "arp-9")), ["G", "A", "B", "D", "F"]) &&
+    same(degrees(key(PC.G, "arp-9")), ["1", "9", "3", "5", "b7"]), notes(key(PC.G, "arp-9")));
+  check("C13 spells A as its 13th", ascii(key(PC.C, "arp-13").tones.find((t) => t.degree === "13").note) === "A");
+  check("E7#9 spells G as its #9 (F double-sharp avoided)",
+    ["G", "F##"].indexOf(ascii(key(PC.E, "arp-7#9").tones.find((t) => t.degree === "♯9").note)) === 0,
+    key(PC.E, "arp-7#9").tones.map((t) => t.note));
+  check("arpeggio playback runs as voiced: Cmaj9 = C E G B D",
+    same(F.playbackSequence(key(PC.C, "arp-maj9"), "up").map((m) => T.midiName(m)), ["C3", "E3", "G3", "B3", "D4"]));
   const triads = T.GROUPS.find((g) => g.id === "triads");
   check("Triads group lists every triad", triads.items.length === T.CHORDS.filter((c) => c.family === "triad").length);
   check("C augmented triad as a scale: C E G#", same(notes(key(PC.C, "triad-aug")), ["C", "E", "G#"]));
@@ -363,6 +383,21 @@ group("Position focus");
   check("shared pitch goes to the lower string", g.string === 3 && g.fret === 4);
   check("chord arpeggio Am7 from A2", same(F.arpeggio(9, [0, 3, 7, 10], "up").map((m) => T.midiName(m)),
     ["A2", "C3", "E3", "G3", "A3"]));
+
+  // Shapes: A minor pentatonic gives the five boxes, starting on each scale
+  // tone up the low E (open E counts as a shape too).
+  const starts = F.shapeStarts(fb, key(PC.A, "minor-pentatonic").pitchClasses, 4).map((x) => x.start);
+  // Low E: E0 G3 A5 C8 D10 E12; a 4-fret box can start no later than 9.
+  check("A minor pentatonic shapes start at 0 3 5 8, then 9 (10 and 12 clamped)",
+    same(starts, [0, 3, 5, 8, 9]), starts);
+  check("shape starts never exceed the board", starts.every((x) => x + 3 <= 12));
+  const am7 = T.createChord(key(PC.G, "major"), 2, "m7");
+  const arpStarts = F.shapeStarts(fb, am7.tones.map((t) => t.pc), 5).map((x) => x.pc);
+  check("Am7 shapes start only on chord tones", arpStarts.every((pc) => am7.isChordTone(pc)));
+  check("Dominant 9 chord voicing spelled: G9 = G B D F A",
+    same(T.createChord(key(PC.C, "major"), 7, "9").tones.map((t) => ascii(t.note)), ["G", "B", "D", "F", "A"]));
+  check("G9 is diatonic to C major (V9)",
+    T.diatonicChords(key(PC.C, "major"))[4].chords.some((x) => x.chord.id === "9" && x.roman === "V9"));
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

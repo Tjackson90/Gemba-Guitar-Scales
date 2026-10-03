@@ -643,6 +643,18 @@ button {
 .legend.is-chord .legend-title { color: var(--chord); }
 .chip.is-out { border-style: dashed; border-color: var(--chord); background: transparent; }
 
+/* Which shape the focus box is on. */
+.legend-shape {
+  order: 99;
+  margin-left: 10px;
+  padding-left: 12px;
+  border-left: 1px solid var(--border);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--accent);
+  white-space: nowrap;
+}
+
 .chip.is-sounding {
   border-color: var(--accent);
   background: var(--active);
@@ -815,7 +827,7 @@ button {
 .page-title { margin-right: auto; }
 
 .page-tabs { flex: 0 0 auto; }
-.page-tabs .seg { gap: 6px; padding: 4px 16px; }
+.page-tabs .seg { gap: 6px; padding: 4px 14px; }
 
 .tab-star {
   width: 15px;

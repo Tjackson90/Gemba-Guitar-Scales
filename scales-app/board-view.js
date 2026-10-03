@@ -224,8 +224,9 @@ window.GembaBoardView = (function () {
           c.text = text;
           c.bg.textContent = text;
           c.label.textContent = text;
-          // Two-glyph labels (♭3, F♯) step down so they sit inside the circle.
-          c.label.setAttribute("font-size", Math.round(g.r * (text.length > 1 ? 0.7 : 0.82)));
+          // Longer labels (♭3, F♯, then ♯11, ♭13) step down to fit the circle.
+          const size = text.length > 2 ? 0.56 : text.length > 1 ? 0.7 : 0.82;
+          c.label.setAttribute("font-size", Math.round(g.r * size));
         }
       });
 

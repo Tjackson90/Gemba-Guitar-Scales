@@ -151,7 +151,8 @@
     <h2 class="sheet-title page-title" id="scalePageTitle">Scales</h2>
 
     <div class="segmented page-tabs" id="scaleTabs" role="tablist" aria-label="Scale lists">
-      <button class="seg" type="button" role="tab" data-tab="all" aria-controls="scaleList">All</button>
+      <button class="seg" type="button" role="tab" data-tab="scales" aria-controls="scaleList">Scales</button>
+      <button class="seg" type="button" role="tab" data-tab="arpeggios" aria-controls="scaleList">Arpeggios</button>
       <button class="seg" type="button" role="tab" data-tab="favorites" aria-controls="scaleList">
         <svg class="tab-star" viewBox="-12 -12 24 24" aria-hidden="true"><path d="M0 -9L2.6 -3.2L9 -2.8L4.1 1.4L5.6 7.6L0 4.3L-5.6 7.6L-4.1 1.4L-9 -2.8L-2.6 -3.2Z"/></svg>
         Favorites
@@ -240,6 +241,15 @@
       <!-- Generated from GembaFretboard.FOCUS_SPANS -->
       <div class="segmented" id="spanSeg" role="radiogroup" aria-labelledby="spanLabel"></div>
       <span class="field-hint">Tap a fret number on the neck to move the box there.</span>
+    </div>
+
+    <div class="field">
+      <span class="field-label" id="stepLabel">Focus arrows move by</span>
+      <div class="segmented" id="stepSeg" role="radiogroup" aria-labelledby="stepLabel">
+        <button class="seg" type="button" role="radio" data-value="shape">Shape</button>
+        <button class="seg" type="button" role="radio" data-value="fret">One fret</button>
+      </div>
+      <span class="field-hint">Shape jumps to the next box starting on a scale or chord tone on the low E.</span>
     </div>
 
     <div class="field">
