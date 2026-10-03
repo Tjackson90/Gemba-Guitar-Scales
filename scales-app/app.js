@@ -217,7 +217,10 @@
     loopBtn.setAttribute("aria-label", state.loop ? "Loop is on. Tap to play once" : "Loop playback");
 
     const focusBtn = $("focusBtn");
+    const fb = currentFocus();
     focusBtn.classList.toggle("is-active", state.focusOn);
+    // On, the button names the frets in the box: one less thing to look for.
+    $("focusLabel").textContent = fb ? fb.start + "\u2013" + fb.end : "Box";
     focusBtn.setAttribute("aria-pressed", String(state.focusOn));
     syncSeg($("themeSeg"), "value", state.theme);
     syncSeg($("accSeg"), "value", state.preferredAccidental);
@@ -260,8 +263,11 @@
     if (prog) {
       const tag = document.createElement("span");
       tag.className = "legend-shape";
-      tag.textContent = numerals(prog.steps) + " \u00B7 " +
-        Theory.progressionSteps(key, prog.steps, state.progStyle).map((st) => st.key.rootName).join(" ");
+      // Short progressions spell out; long ones (12-bar, Canon) go by name.
+      tag.textContent = prog.steps.length <= 5
+        ? numerals(prog.steps) + " \u00B7 " +
+          Theory.progressionSteps(key, prog.steps, state.progStyle).map((st) => st.key.rootName).join(" ")
+        : prog.name;
       legend.appendChild(tag);
     }
 
@@ -934,6 +940,8 @@
       left.title = right.title = whole ? "The whole neck is in view" : "";
     }
     $("rotateHint").classList.toggle("is-needed", !whole);
+    // The arrows only appear when they can do something.
+    $("navPair").hidden = !f && whole;
   }
 
   /** The pitch classes in view: the chord's if one is shown, else the scale's. */

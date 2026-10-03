@@ -63,65 +63,38 @@
       </button>
     </div>
 
+    <!-- What is drawn over the scale: one joined control instead of three. -->
     <div class="tb-group tb-view">
-      <button class="chord-btn" id="chordBtn" type="button"
-              aria-haspopup="dialog" aria-controls="chordPage" aria-expanded="false">
-        <svg class="icon" viewBox="-12 -12 24 24" aria-hidden="true">
-          <circle cx="-5" cy="5" r="3.2"/><circle cx="1" cy="-1" r="3.2"/><circle cx="7" cy="-7" r="3.2"/>
-        </svg>
-        <span class="chord-btn-label" id="chordLabel">Chord</span>
-      </button>
+      <div class="layer-group" role="group" aria-label="Overlays">
+        <button class="layer-btn layer-chord" id="chordBtn" type="button"
+                aria-haspopup="dialog" aria-controls="chordPage" aria-expanded="false">
+          <svg class="icon" viewBox="-12 -12 24 24" aria-hidden="true">
+            <circle cx="-5" cy="5" r="3.2"/><circle cx="1" cy="-1" r="3.2"/><circle cx="7" cy="-7" r="3.2"/>
+          </svg>
+          <span class="layer-label" id="chordLabel">Chord</span>
+        </button>
 
-      <button class="tool-btn" id="focusBtn" type="button" aria-pressed="false"
-              aria-label="Position focus: isolate a box of frets">
-        <svg class="icon" viewBox="-12 -12 24 24" aria-hidden="true">
-          <path d="M-10 -6V-9H-7M7 -9H10V-6M10 6V9H7M-7 9H-10V6"/>
-          <path d="M-3 -9V9M3 -9V9" class="icon-faint"/>
-        </svg>
-      </button>
+        <button class="layer-btn" id="progBtn" type="button"
+                aria-haspopup="dialog" aria-controls="progPage" aria-expanded="false">
+          <svg class="icon" viewBox="-12 -12 24 24" aria-hidden="true">
+            <path d="M-10 8V3M-4 8V-2M2 8V1M8 8V-7"/>
+          </svg>
+          <span class="layer-label" id="progLabel">Prog</span>
+        </button>
 
-      <button class="prog-btn" id="progBtn" type="button"
-              aria-haspopup="dialog" aria-controls="progPage" aria-expanded="false">
-        <svg class="icon" viewBox="-12 -12 24 24" aria-hidden="true">
-          <path d="M-10 8V3M-4 8V-2M2 8V1M8 8V-7"/>
-        </svg>
-        <span class="chord-btn-label" id="progLabel">Prog</span>
-      </button>
+        <button class="layer-btn" id="focusBtn" type="button" aria-pressed="false"
+                aria-label="Position focus: isolate a box of frets">
+          <svg class="icon" viewBox="-12 -12 24 24" aria-hidden="true">
+            <path d="M-10 -6V-9H-7M7 -9H10V-6M10 6V9H7M-7 9H-10V6"/>
+            <path d="M-3 -9V9M3 -9V9" class="icon-faint"/>
+          </svg>
+          <span class="layer-label" id="focusLabel">Box</span>
+        </button>
+      </div>
 
       <!-- One button flips the labels between intervals and note names. -->
       <button class="tool-btn mode-btn" id="modeBtn" type="button">
         <span class="mode-int">1&#8202;3&#8202;5</span><span class="mode-note">C&#8202;E&#8202;G</span>
-      </button>
-
-      <div class="nav-pair" role="group" aria-label="Move along the neck">
-        <button class="nav-btn" id="navLeft" type="button" aria-label="Toward the nut">
-          <svg class="icon" viewBox="-12 -12 24 24" aria-hidden="true"><path d="M4 -7L-4 0L4 7"/></svg>
-        </button>
-        <button class="nav-btn" id="navRight" type="button" aria-label="Toward the body">
-          <svg class="icon" viewBox="-12 -12 24 24" aria-hidden="true"><path d="M-4 -7L4 0L-4 7"/></svg>
-        </button>
-      </div>
-    </div>
-
-    <div class="tb-group tb-play">
-      <button class="tool-btn" id="loopBtn" type="button" aria-pressed="false" aria-label="Loop playback">
-        <svg class="icon" viewBox="-12 -12 24 24" aria-hidden="true">
-          <path d="M-9 2V-1A4 4 0 0 1 -5 -5H7M4 -8L7 -5L4 -2M9 -2V1A4 4 0 0 1 5 5H-7M-4 2L-7 5L-4 8"/>
-        </svg>
-      </button>
-
-      <!-- One button cycles up / down / up+down; Settings has the same choice spelled out. -->
-      <button class="tool-btn dir-btn" id="dirBtn" type="button" aria-label="Playback direction: ascending">
-        <svg class="icon dir-up" viewBox="-12 -12 24 24" aria-hidden="true"><path d="M0 8V-8M-6 -2L0 -8L6 -2"/></svg>
-        <svg class="icon dir-down" viewBox="-12 -12 24 24" aria-hidden="true"><path d="M0 -8V8M-6 2L0 8L6 2"/></svg>
-        <svg class="icon dir-updown" viewBox="-12 -12 24 24" aria-hidden="true"><path d="M-4 8V-8M-9 -3L-4 -8L1 -3M4 -8V8M-1 3L4 8L9 3"/></svg>
-      </button>
-
-      <button class="btn-play" id="playBtn" type="button" aria-pressed="false" aria-label="Play scale">
-        <svg class="play-glyph" viewBox="-12 -12 24 24" aria-hidden="true">
-          <path class="glyph-play" d="M-4.5 -7.5L8 0L-4.5 7.5Z"/>
-          <rect class="glyph-stop" x="-6" y="-6" width="12" height="12" rx="1.5"/>
-        </svg>
       </button>
     </div>
   </header>
@@ -133,8 +106,42 @@
     <p class="sr-only" id="boardSummary" aria-live="polite"></p>
   </main>
 
-  <!-- Slim legend: the scale as notes over degrees, in order. -->
-  <footer class="legend" id="legend" aria-label="Scale tones"></footer>
+  <!-- Dock: the notes being shown, then everything to do with playing them. -->
+  <footer class="dock">
+    <div class="legend" id="legend" aria-label="Scale tones"></div>
+
+    <div class="transport">
+      <div class="nav-pair" id="navPair" role="group" aria-label="Move along the neck">
+        <button class="nav-btn" id="navLeft" type="button" aria-label="Toward the nut">
+          <svg class="icon" viewBox="-12 -12 24 24" aria-hidden="true"><path d="M4 -7L-4 0L4 7"/></svg>
+        </button>
+        <button class="nav-btn" id="navRight" type="button" aria-label="Toward the body">
+          <svg class="icon" viewBox="-12 -12 24 24" aria-hidden="true"><path d="M-4 -7L4 0L-4 7"/></svg>
+        </button>
+      </div>
+
+      <div class="layer-group play-opts" role="group" aria-label="Playback options">
+        <button class="layer-btn" id="loopBtn" type="button" aria-pressed="false" aria-label="Loop playback">
+          <svg class="icon" viewBox="-12 -12 24 24" aria-hidden="true">
+            <path d="M-9 2V-1A4 4 0 0 1 -5 -5H7M4 -8L7 -5L4 -2M9 -2V1A4 4 0 0 1 5 5H-7M-4 2L-7 5L-4 8"/>
+          </svg>
+        </button>
+        <!-- Cycles up / down / up+down; Settings has the same choice spelled out. -->
+        <button class="layer-btn dir-btn" id="dirBtn" type="button" aria-label="Playback direction: ascending">
+          <svg class="icon dir-up" viewBox="-12 -12 24 24" aria-hidden="true"><path d="M0 8V-8M-6 -2L0 -8L6 -2"/></svg>
+          <svg class="icon dir-down" viewBox="-12 -12 24 24" aria-hidden="true"><path d="M0 -8V8M-6 2L0 8L6 2"/></svg>
+          <svg class="icon dir-updown" viewBox="-12 -12 24 24" aria-hidden="true"><path d="M-4 8V-8M-9 -3L-4 -8L1 -3M4 -8V8M-1 3L4 8L9 3"/></svg>
+        </button>
+      </div>
+
+      <button class="btn-play" id="playBtn" type="button" aria-pressed="false" aria-label="Play scale">
+        <svg class="play-glyph" viewBox="-12 -12 24 24" aria-hidden="true">
+          <path class="glyph-play" d="M-4.5 -7.5L8 0L-4.5 7.5Z"/>
+          <rect class="glyph-stop" x="-6" y="-6" width="12" height="12" rx="1.5"/>
+        </svg>
+      </button>
+    </div>
+  </footer>
   <p class="rotate-hint" id="rotateHint">Turn your phone sideways to see the whole neck</p>
 </div>
 

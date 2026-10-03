@@ -292,60 +292,52 @@ button {
 
 .scale-btn:active { color: var(--accent); }
 
-/* Chord overlay button: names the chord in gold while one is shown. */
-.chord-btn {
+/* Joined button groups: overlays up top, playback options in the dock.
+   One outline and hairline dividers, so a cluster reads as one control. */
+.layer-group {
   flex: 0 0 auto;
-  height: 44px;
-  max-width: 150px;
-  padding: 0 12px 0 10px;
   display: flex;
-  align-items: center;
-  gap: 6px;
+  height: 44px;
   border: 1px solid var(--border);
   border-radius: var(--r);
   background: var(--panel);
-  color: var(--muted);
-  font-size: 15px;
-  font-weight: 500;
-  transition: border-color var(--fast) var(--ease), color var(--fast) var(--ease),
-              background var(--fast) var(--ease), transform var(--fast) var(--ease);
+  overflow: hidden;
 }
 
-.chord-btn .icon { width: 20px; height: 20px; flex: 0 0 auto; }
-.chord-btn-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.chord-btn:active { transform: scale(0.96); }
-
-.chord-btn.is-active {
-  border-color: var(--chord);
-  background: var(--active);
-  color: var(--chord);
-}
-
-.chord-btn.is-active .chord-btn-label { color: var(--ink); font-family: var(--font-serif); font-size: 18px; }
-
-/* Progression button: names the progression while one is on. */
-.prog-btn {
-  flex: 0 0 auto;
-  height: 44px;
-  max-width: 150px;
-  padding: 0 12px 0 10px;
+.layer-btn {
+  min-width: 44px;
+  height: 100%;
+  padding: 0 12px;
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
-  border: 1px solid var(--border);
-  border-radius: var(--r);
-  background: var(--panel);
+  border: none;
+  background: transparent;
   color: var(--muted);
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 500;
-  transition: border-color var(--fast) var(--ease), color var(--fast) var(--ease),
-              background var(--fast) var(--ease), transform var(--fast) var(--ease);
+  white-space: nowrap;
+  transition: background var(--fast) var(--ease), color var(--fast) var(--ease);
 }
 
-.prog-btn .icon { width: 20px; height: 20px; flex: 0 0 auto; }
-.prog-btn:active { transform: scale(0.96); }
-.prog-btn.is-active { border-color: var(--accent); background: var(--active); color: var(--accent); }
-.prog-btn.is-active .chord-btn-label { color: var(--ink); }
+.layer-btn + .layer-btn { border-left: 1px solid var(--border); }
+.layer-btn .icon { width: 20px; height: 20px; flex: 0 0 auto; }
+.layer-btn:active { background: var(--active); }
+.layer-btn .icon-faint { opacity: 0.45; }
+
+.layer-label {
+  max-width: 110px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.layer-btn.is-active { background: var(--active); color: var(--accent); }
+.layer-btn.is-active .layer-label { color: var(--ink); }
+.layer-chord.is-active { color: var(--chord); }
+.layer-chord.is-active .layer-label { font-family: var(--font-serif); font-size: 17px; }
+
+.play-opts .layer-btn { padding: 0 10px; }
 
 /* Intervals / notes: one button showing what the neck is labelled with. */
 .mode-btn { width: 64px; font-family: var(--font-mono); font-size: 13px; color: var(--ink); }
@@ -624,16 +616,38 @@ button {
 /* Fret numbers are tap targets: tap one to put the focus box there. */
 .fb-num-hit { fill: transparent; cursor: pointer; }
 
-/* --------------------------------------------------------------- legend */
+/* ----------------------------------------------------------------- dock */
 
-.legend {
+.dock {
   flex: 0 0 auto;
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 6px 12px calc(8px + var(--safe-b));
+  gap: 12px;
+  padding: 6px 12px calc(6px + var(--safe-b));
   border-top: 1px solid var(--border);
+}
+
+.transport {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.nav-pair[hidden] { display: none; }
+.dock .btn-play { width: 46px; height: 46px; }
+
+/* --------------------------------------------------------------- legend */
+
+.legend {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  /* Centred when it fits; when it does not, it starts at the left and
+     scrolls, rather than clipping its first chips. */
+  justify-content: safe center;
+  gap: 6px;
   overflow-x: auto;
   scrollbar-width: none;
 }
@@ -1356,7 +1370,6 @@ button {
 @media (max-width: 760px) {
   .toolbar { column-gap: 8px; }
   .tb-key  { order: 1; flex: 1 1 0; }
-  .tb-play { order: 2; }
   .tb-view {
     order: 3;
     flex: 1 0 100%;
@@ -1369,7 +1382,7 @@ button {
   .root-grid { grid-template-columns: repeat(4, 1fr); }
   .scale-grid { grid-template-columns: 1fr; }
   .chord-roots { grid-template-columns: repeat(6, minmax(0, 1fr)); }
-  .chord-btn-label { display: none; }
+  .layer-label { display: none; }
   .numeral-pad { grid-template-columns: repeat(6, minmax(0, 1fr)); }
   .scale-pick-formula { display: none; }
   .search { flex: 1 1 100%; order: 3; }
@@ -1383,7 +1396,7 @@ button {
 @media (max-height: 460px) {
   .toolbar { padding: 4px 10px 4px; }
   .seg { min-height: 40px; }
-  .legend { padding-top: 4px; padding-bottom: calc(4px + var(--safe-b)); }
+  .dock { padding-top: 4px; padding-bottom: calc(4px + var(--safe-b)); }
   .chip { padding: 2px 8px; flex-direction: row; gap: 6px; align-items: baseline; }
   .sheet { max-height: calc(100dvh - var(--safe-t) - 8px); }
   .sheet-head { padding-top: 8px; padding-bottom: 4px; }
