@@ -32,9 +32,10 @@ npm run open:android
 
 ```
 scales-app/
+  scale-catalog.js  59 scales and modes, and how the picker groups them (data)
   theory.js       music theory: notes, scales, spelling, degrees      (no DOM)
   fretboard.js    tuning + fret maths, inlays, playback sequences     (no DOM)
-  audio.js        plucked-string playback (Web Audio, Karplus-Strong)
+  audio.js        playback: six voices (Karplus-Strong strings + small synths)
   board-view.js   SVG fretboard renderer
   app.js          state, persistence, toolbar, sheets
   index.html
@@ -44,10 +45,14 @@ tests/run.js      engine tests
 
 ## How the music engine works
 
-**Scales are interval sets.** `GembaTheory.SCALES` lists each scale once, as semitones
-above the root (`Major: 0 2 4 5 7 9 11`). Every key is generated from that. Adding a
-scale is one line. A scale whose degree names differ from the defaults (e.g. Lydian's ♯4)
-can add a `degrees` array.
+**Scales are interval sets.** `scale-catalog.js` lists each scale once, as semitones
+above the root (`Major: 0 2 4 5 7 9 11`), with alternate names in `aka`. Every key is
+generated from that. Adding a scale is one line. A scale whose degree names differ from
+the defaults (e.g. Lydian's ♯4) adds a `degrees` string. The tests check that every
+degree name lands on its interval and that no two scales share an interval set.
+`GROUPS` arranges them for the picker (Essentials, the modes of major, melodic minor and
+harmonic minor, Pentatonic, Exotic & World, Bebop, Symmetric). A scale can sit in several
+groups under a group-specific label: Major is "Ionian" among the modes.
 
 **A key is derived, never stored.** `createKey(rootPc, scaleId, accidentalPreference)`
 returns `byInterval[0..11]`. For every semitone distance from the root it gives

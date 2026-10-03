@@ -92,6 +92,67 @@ for (const s of T.SCALES) {
 }
 check("unknown scale id falls back safely", T.getScale("nope") === T.SCALES[0]);
 
+group("Catalogue integrity");
+{
+  const MAJOR = [0, 2, 4, 5, 7, 9, 11];
+  // A degree name must land on its interval: "#4" = major 4th + 1 = 6.
+  function semis(label) {
+    const n = parseInt(label.replace(/\D/g, ""), 10);
+    const shift = (label.match(/♯/g) || []).length - (label.match(/♭/g) || []).length;
+    return T.mod12(MAJOR[(n - 1) % 7] + shift);
+  }
+
+  const wrong = [];
+  for (const s of T.SCALES) {
+    const labels = T.degreeLabels(s);
+    if (s.degrees && s.degrees.length !== s.intervals.length) wrong.push(s.id + " (count)");
+    labels.forEach((l, i) => { if (semis(l) !== s.intervals[i]) wrong.push(`${s.id} ${l}`); });
+  }
+  check(`all ${T.SCALES.length} scales: every degree name matches its interval`, wrong.length === 0, wrong);
+
+  const ids = new Set(T.SCALES.map((s) => s.id));
+  check("scale ids unique", ids.size === T.SCALES.length);
+
+  const sets = new Map();
+  const dupes = [];
+  for (const s of T.SCALES) {
+    const k = s.intervals.join(",");
+    if (sets.has(k)) dupes.push(`${sets.get(k)} = ${s.id}`);
+    sets.set(k, s.id);
+  }
+  check("no two scales share an interval set", dupes.length === 0, dupes);
+
+  const grouped = new Set();
+  let broken = 0;
+  T.GROUPS.forEach((g) => g.items.forEach((it) => { if (!it.scale) broken++; else grouped.add(it.scale.id); }));
+  check("every group item resolves to a scale", broken === 0);
+  check("every scale appears in at least one group", grouped.size === T.SCALES.length,
+    T.SCALES.filter((s) => !grouped.has(s.id)).map((s) => s.id));
+  check("original V1 ids still exist (saved settings)",
+    ["major", "natural-minor", "major-pentatonic", "minor-pentatonic", "blues", "harmonic-minor", "melodic-minor"]
+      .every((id) => T.getScale(id).id === id));
+  check("modes of major are seven", T.GROUPS.find((g) => g.id === "major-modes").items.length === 7);
+  check("Ionian label points at Major",
+    T.GROUPS.find((g) => g.id === "major-modes").items[0].label === "Ionian" &&
+    T.GROUPS.find((g) => g.id === "major-modes").items[0].scale.id === "major");
+}
+
+group("Mode spellings");
+{
+  check("D Dorian: D E F G A B C", same(notes(key(PC.D, "dorian")), ["D", "E", "F", "G", "A", "B", "C"]));
+  check("F Lydian: F G A B C D E", same(notes(key(PC.F, "lydian")), ["F", "G", "A", "B", "C", "D", "E"]));
+  check("Lydian degree is #4", degrees(key(PC.F, "lydian"))[3] === "#4");
+  check("E Phrygian Dominant: E F G# A B C D",
+    same(notes(key(PC.E, "phrygian-dominant")), ["E", "F", "G#", "A", "B", "C", "D"]));
+  check("G Altered: G Ab A# B Db Eb F",
+    same(notes(key(PC.G, "altered")), ["G", "Ab", "A#", "B", "Db", "Eb", "F"]), notes(key(PC.G, "altered")));
+  check("C Whole Tone: C D E F# G# Bb",
+    same(notes(key(PC.C, "whole-tone")), ["C", "D", "E", "F#", "G#", "Bb"]), notes(key(PC.C, "whole-tone")));
+  check("A Hungarian Minor: A B C D# E F G#",
+    same(notes(key(PC.A, "hungarian-minor")), ["A", "B", "C", "D#", "E", "F", "G#"]));
+  check("chromatic has 12 tones", key(PC.C, "chromatic").tones.length === 12);
+}
+
 group("Every root x scale builds without errors or repeated pitches");
 {
   let problems = [];
@@ -107,7 +168,7 @@ group("Every root x scale builds without errors or repeated pitches");
       }
     }
   }
-  check("252 combinations clean", problems.length === 0, problems.slice(0, 5));
+  check(`${12 * 3 * T.SCALES.length} root x scale x preference combinations clean`, problems.length === 0, problems.slice(0, 5));
 }
 
 /* --------------------------------------------------------- enharmonics -- */

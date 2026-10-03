@@ -654,38 +654,217 @@ button {
 
 .root-opt.is-active .root-opt-main { color: var(--root); }
 
-/* Scale picker */
-.scale-list { display: flex; flex-direction: column; gap: 6px; }
+/* =========================================================== scale page */
 
-.scale-opt {
-  min-height: 56px;
-  padding: 8px 16px;
+/* A full screen of its own: the catalogue is too big for a sheet. */
+.page {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  padding: var(--safe-t) var(--safe-r) 0 var(--safe-l);
+  transform: translateX(100%);
+  visibility: hidden;
+  transition: transform 280ms var(--ease), visibility 0s linear 280ms;
+}
+
+.page.is-open {
+  transform: translateX(0);
+  visibility: visible;
+  transition: transform 280ms var(--ease), visibility 0s;
+}
+
+.page-head {
+  flex: 0 0 auto;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 16px;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  padding: 8px 16px 10px 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.page-title { margin-right: auto; }
+
+.page-tabs { flex: 0 0 auto; }
+.page-tabs .seg { gap: 6px; padding: 4px 16px; }
+
+.tab-star {
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linejoin: round;
+}
+
+.page-tabs .seg.is-active .tab-star { fill: var(--accent); stroke: var(--accent); }
+
+.search {
+  flex: 0 1 260px;
+  min-width: 160px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
   border: 1px solid var(--border);
   border-radius: var(--r);
   background: var(--panel);
-  text-align: left;
+  color: var(--muted);
+}
+
+.search:focus-within { border-color: var(--accent); }
+.search .icon { width: 18px; height: 18px; flex: 0 0 auto; }
+
+.search input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  border: none;
+  background: none;
+  outline: none;
+  color: var(--ink);
+  font: inherit;
+  font-size: 15px;
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+.search input::placeholder { color: var(--muted); }
+.search input::-webkit-search-cancel-button { filter: grayscale(1); }
+
+.page-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 8px 16px calc(24px + var(--safe-b));
+}
+
+.scale-group + .scale-group { margin-top: 18px; }
+
+/* The tuner's section headings: small, muted, widely spaced capitals. */
+.scale-group-title {
+  position: sticky;
+  top: -8px;
+  z-index: 1;
+  padding: 10px 2px 8px;
+  background: var(--bg);
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.scale-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 6px;
+}
+
+.scale-row {
+  display: flex;
+  align-items: stretch;
+  min-height: 58px;
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  background: var(--panel);
   transition: border-color var(--fast) var(--ease), background var(--fast) var(--ease);
 }
 
-.scale-opt-name { font-size: 16px; font-weight: 500; }
+.scale-row.is-active {
+  border-color: var(--accent);
+  background: var(--active);
+}
 
-.scale-opt-formula {
+.scale-pick {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 8px 4px 8px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: none;
+  border-radius: var(--r) 0 0 var(--r);
+  background: none;
+  text-align: left;
+}
+
+.scale-pick:active { background: var(--active); }
+
+.scale-pick-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.scale-pick-name { font-size: 16px; font-weight: 500; }
+.scale-row.is-active .scale-pick-name { color: var(--accent); }
+
+.scale-pick-aka {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.scale-pick-formula {
+  flex: 0 0 auto;           /* the formula wins; alternate names ellipsize */
+  overflow: hidden;
+  text-overflow: ellipsis;
   font-family: var(--font-mono);
   font-size: 12px;
   color: var(--muted);
   white-space: nowrap;
 }
 
-.scale-opt.is-active {
-  border-color: var(--accent);
-  background: var(--active);
+.star {
+  flex: 0 0 auto;
+  width: 48px;
+  display: grid;
+  place-items: center;
+  border: none;
+  border-radius: 0 var(--r) var(--r) 0;
+  background: none;
+  color: var(--muted);
+  transition: color var(--fast) var(--ease), transform var(--fast) var(--ease);
 }
 
-.scale-opt.is-active .scale-opt-name { color: var(--accent); }
+.star svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linejoin: round;
+}
+
+.star:active { transform: scale(0.88); }
+.star.is-fav { color: var(--accent); }
+.star.is-fav svg { fill: currentColor; }
+
+.scale-empty {
+  max-width: 420px;
+  margin: 48px auto;
+  text-align: center;
+  font-size: 15px;
+  color: var(--muted);
+}
+
+/* Settings: a grid of choices on the segmented panel (six sounds). */
+.segmented.wrap-3 {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 4px;
+}
 
 /* Settings fields */
 .field { display: flex; flex-direction: column; gap: 10px; }
@@ -780,7 +959,9 @@ button {
   .toolbar .root-btn { min-width: 0; padding: 0 16px; }
   .root-btn-label { display: none; }
   .root-grid { grid-template-columns: repeat(4, 1fr); }
-  .scale-opt-formula { display: none; }
+  .scale-grid { grid-template-columns: 1fr; }
+  .scale-pick-formula { display: none; }
+  .search { flex: 1 1 100%; order: 3; }
 }
 
 @media (max-width: 760px) and (orientation: portrait) {

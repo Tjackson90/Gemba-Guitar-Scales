@@ -49,8 +49,19 @@
     speed: pick(store.get("speed"), Object.keys(SPEEDS), "medium"),
     showChromatic: store.get("chromatic", "1") === "1",
     tapSound: store.get("tapSound", "1") === "1",
-    theme: pick(store.get("theme"), ["dark", "light"], "dark")
+    theme: pick(store.get("theme"), ["dark", "light"], "dark"),
+    voice: pick(store.get("voice"), Object.keys(Audio.VOICES), "acoustic"),
+    ring: pick(store.get("ring"), Object.keys(Audio.RINGS), "short"),
+    favorites: loadFavorites(),
+    scaleTab: pick(store.get("scaleTab"), ["all", "favorites"], "all")
   };
+
+  function loadFavorites() {
+    try {
+      const list = JSON.parse(store.get("favorites", "[]"));
+      return Array.isArray(list) ? list.filter((id) => SCALE_IDS.indexOf(id) !== -1) : [];
+    } catch (e) { return []; }
+  }
 
   let key = null;
   let board = null;
@@ -93,6 +104,8 @@
     syncSeg($("accSeg"), "value", state.preferredAccidental);
     syncSeg($("fretSeg"), "value", String(state.fretRange));
     syncSeg($("speedSeg"), "value", state.speed);
+    syncSeg($("voiceSeg"), "value", state.voice);
+    syncSeg($("ringSeg"), "value", state.ring);
     $("chromaticToggle").setAttribute("aria-checked", String(state.showChromatic));
     $("tapSoundToggle").setAttribute("aria-checked", String(state.tapSound));
 
@@ -131,11 +144,137 @@
       b.classList.toggle("is-active", on);
       b.setAttribute("aria-checked", String(on));
     });
-    document.querySelectorAll(".scale-opt").forEach((b) => {
-      const on = b.dataset.scale === state.selectedScale;
+    renderScaleList();
+  }
+
+  /* ---------------------------------------------------------- scale page */
+
+  let scaleQuery = "";
+
+  /** Folds ♭ ♯ ♮ to ASCII so "b6" finds "Mixolydian ♭6". */
+  function fold(text) {
+    return text.toLowerCase()
+      .replace(/♭/g, "b").replace(/♯/g, "#").replace(/♮/g, "");
+  }
+
+  function scaleRow(scale, label) {
+    const active = scale.id === state.selectedScale;
+    const row = document.createElement("div");
+    row.className = "scale-row" + (active ? " is-active" : "");
+
+    const pickBtn = document.createElement("button");
+    pickBtn.type = "button";
+    pickBtn.className = "scale-pick";
+    pickBtn.dataset.scale = scale.id;
+    pickBtn.setAttribute("role", "radio");
+    pickBtn.setAttribute("aria-checked", String(active));
+
+    const others = (label !== scale.name ? [scale.name] : []).concat(scale.aka).filter((n) => n !== label);
+    pickBtn.innerHTML =
+      `<span class="scale-pick-text"><span class="scale-pick-name"></span>` +
+      (others.length ? `<span class="scale-pick-aka"></span>` : "") + `</span>` +
+      `<span class="scale-pick-formula"></span>`;
+    pickBtn.querySelector(".scale-pick-name").textContent = label;
+    if (others.length) pickBtn.querySelector(".scale-pick-aka").textContent = others.join(" · ");
+    pickBtn.querySelector(".scale-pick-formula").textContent = Theory.degreeLabels(scale).join(" ");
+
+    const fav = state.favorites.indexOf(scale.id) !== -1;
+    const star = document.createElement("button");
+    star.type = "button";
+    star.className = "star" + (fav ? " is-fav" : "");
+    star.dataset.star = scale.id;
+    star.setAttribute("aria-pressed", String(fav));
+    star.setAttribute("aria-label", (fav ? "Remove " : "Add ") + label + (fav ? " from" : " to") + " favorites");
+    star.innerHTML = `<svg viewBox="-12 -12 24 24" aria-hidden="true"><path d="M0 -9L2.6 -3.2L9 -2.8L4.1 1.4L5.6 7.6L0 4.3L-5.6 7.6L-4.1 1.4L-9 -2.8L-2.6 -3.2Z"/></svg>`;
+
+    row.appendChild(pickBtn);
+    row.appendChild(star);
+    return row;
+  }
+
+  function section(title, rows) {
+    const sec = document.createElement("section");
+    sec.className = "scale-group";
+    if (title) {
+      const h = document.createElement("h3");
+      h.className = "scale-group-title";
+      h.textContent = title;
+      sec.appendChild(h);
+    }
+    const grid = document.createElement("div");
+    grid.className = "scale-grid";
+    rows.forEach((r) => grid.appendChild(r));
+    sec.appendChild(grid);
+    return sec;
+  }
+
+  function emptyNote(text) {
+    const p = document.createElement("p");
+    p.className = "scale-empty";
+    p.textContent = text;
+    return p;
+  }
+
+  function renderScaleList() {
+    const list = $("scaleList");
+    const keepScroll = list.scrollTop;
+    list.innerHTML = "";
+    syncTabs();
+
+    // Every word must appear somewhere: "hung min" finds Hungarian Minor,
+    // and a stray autocorrected word only narrows, never empties wrongly.
+    const q = fold(scaleQuery.trim());
+    const words = q.split(/\s+/).filter(Boolean);
+    const matches = (scale, label) => {
+      const hay = fold([label, scale.name].concat(scale.aka).join(" "));
+      return words.every((w) => hay.indexOf(w) !== -1);
+    };
+
+    if (state.scaleTab === "favorites") {
+      const favs = state.favorites.map((id) => Theory.getScale(id)).filter((s) => matches(s, s.name));
+      if (!state.favorites.length) {
+        list.appendChild(emptyNote("No favorites yet. Tap the star beside any scale to keep it here."));
+      } else if (!favs.length) {
+        list.appendChild(emptyNote("No favorites match “" + scaleQuery.trim() + "”."));
+      } else {
+        list.appendChild(section(null, favs.map((s) => scaleRow(s, s.name))));
+      }
+    } else if (q) {
+      // Searching flattens the groups: each scale once, under its own name.
+      const seen = new Set();
+      const rows = [];
+      Theory.GROUPS.forEach((g) => g.items.forEach((it) => {
+        if (seen.has(it.scale.id) || !matches(it.scale, it.label)) return;
+        seen.add(it.scale.id);
+        rows.push(scaleRow(it.scale, it.scale.name));
+      }));
+      list.appendChild(rows.length ? section(null, rows)
+        : emptyNote("No scales match “" + scaleQuery.trim() + "”."));
+    } else {
+      Theory.GROUPS.forEach((g) => {
+        list.appendChild(section(g.name, g.items.map((it) => scaleRow(it.scale, it.label))));
+      });
+    }
+
+    list.scrollTop = keepScroll;
+  }
+
+  function syncTabs() {
+    $("scaleTabs").querySelectorAll(".seg").forEach((b) => {
+      const on = b.dataset.tab === state.scaleTab;
       b.classList.toggle("is-active", on);
-      b.setAttribute("aria-checked", String(on));
+      b.setAttribute("aria-selected", String(on));
     });
+  }
+
+  function toggleFavorite(id) {
+    const favs = state.favorites.slice();
+    const i = favs.indexOf(id);
+    if (i === -1) favs.push(id);
+    else favs.splice(i, 1);
+    state.favorites = favs;
+    store.set("favorites", JSON.stringify(favs));
+    renderScaleList();
   }
 
   function applyTheme() {
@@ -184,6 +323,12 @@
     store.set("chromatic", state.showChromatic ? "1" : "0");
     store.set("tapSound", state.tapSound ? "1" : "0");
     store.set("theme", state.theme);
+    store.set("voice", state.voice);
+    store.set("ring", state.ring);
+    store.set("scaleTab", state.scaleTab);
+
+    Audio.setVoice(state.voice);
+    Audio.setRing(state.ring);
   }
 
   /* ---------------------------------------------------------- segmented */
@@ -208,29 +353,62 @@
   let openSheetEl = null;
   let sheetTrigger = null;
 
+  // Android's back button closes whatever is open; only on the fretboard
+  // does it leave the app. Browsers get the same through history entries.
+  let skipNextPop = false;
+
+  const CapApp = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.App;
+  if (CapApp) {
+    CapApp.addListener("backButton", () => {
+      if (openSheetEl) closeSheet();
+      else CapApp.minimizeApp();
+    });
+  }
+
+  window.addEventListener("popstate", () => {
+    if (skipNextPop) { skipNextPop = false; return; }
+    if (openSheetEl) closeSheet(true, true);
+  });
+
   function openSheet(id, trigger) {
-    if (openSheetEl) closeSheet(false);
+    if (openSheetEl) return;
     const sheet = $(id);
     openSheetEl = sheet;
     sheetTrigger = trigger || null;
+    try { history.pushState({ overlay: id }, ""); } catch (e) { /* unsupported */ }
 
-    const scrim = $("scrim");
-    scrim.hidden = false;
-    requestAnimationFrame(() => scrim.classList.add("is-open"));
+    if (!sheet.classList.contains("page")) {
+      const scrim = $("scrim");
+      scrim.hidden = false;
+      requestAnimationFrame(() => scrim.classList.add("is-open"));
+    }
 
     sheet.classList.add("is-open");
     sheet.setAttribute("aria-hidden", "false");
     document.querySelector(".screen").inert = true;
     if (trigger) trigger.setAttribute("aria-expanded", "true");
 
-    const focusTarget = sheet.querySelector(".is-active") || sheet.querySelector("button");
+    if (id === "scalePage") {
+      renderScaleList();
+      const current = sheet.querySelector(".scale-row.is-active");
+      if (current) current.scrollIntoView({ block: "center" });
+      else $("scaleList").scrollTop = 0;
+    }
+
+    const focusTarget = sheet.querySelector(".scale-row.is-active .scale-pick") ||
+      sheet.querySelector(".is-active") || sheet.querySelector("button");
     setTimeout(() => focusTarget && focusTarget.focus({ preventScroll: true }), 60);
   }
 
-  function closeSheet(restoreFocus) {
+  function closeSheet(restoreFocus, fromHistory) {
     if (!openSheetEl) return;
     const sheet = openSheetEl;
     openSheetEl = null;
+
+    if (!fromHistory && history.state && history.state.overlay) {
+      skipNextPop = true;
+      history.back();
+    }
 
     sheet.classList.remove("is-open");
     sheet.setAttribute("aria-hidden", "true");
@@ -269,21 +447,15 @@
       grid.appendChild(b);
     }
 
-    const list = $("scaleList");
-    Theory.SCALES.forEach((s) => {
+    const voices = $("voiceSeg");
+    Object.keys(Audio.VOICES).forEach((id) => {
       const b = document.createElement("button");
       b.type = "button";
-      b.className = "scale-opt";
+      b.className = "seg";
       b.setAttribute("role", "radio");
-      b.dataset.scale = s.id;
-      b.innerHTML = `<span class="scale-opt-name"></span><span class="scale-opt-formula"></span>`;
-      b.firstChild.textContent = s.name;
-      b.lastChild.textContent = Theory.degreeLabels(s).join("  ");
-      b.addEventListener("click", () => {
-        set({ selectedScale: s.id });
-        closeSheet();
-      });
-      list.appendChild(b);
+      b.dataset.value = id;
+      b.textContent = Audio.VOICES[id].name;
+      voices.appendChild(b);
     });
 
     const frets = $("fretSeg");
@@ -360,7 +532,31 @@
   /* -------------------------------------------------------------- events */
 
   $("rootBtn").addEventListener("click", (e) => openSheet("rootSheet", e.currentTarget));
-  $("scaleBtn").addEventListener("click", (e) => openSheet("scaleSheet", e.currentTarget));
+  $("scaleBtn").addEventListener("click", (e) => openSheet("scalePage", e.currentTarget));
+
+  $("scaleList").addEventListener("click", (e) => {
+    const star = e.target.closest("[data-star]");
+    if (star) { toggleFavorite(star.dataset.star); return; }
+    const row = e.target.closest("[data-scale]");
+    if (row) {
+      set({ selectedScale: row.dataset.scale });
+      closeSheet();
+    }
+  });
+
+  $("scaleTabs").addEventListener("click", (e) => {
+    const b = e.target.closest("[data-tab]");
+    if (!b) return;
+    set({ scaleTab: b.dataset.tab });
+    $("scaleList").scrollTop = 0;
+    renderScaleList();
+  });
+
+  $("scaleSearch").addEventListener("input", (e) => {
+    scaleQuery = e.target.value;
+    $("scaleList").scrollTop = 0;
+    renderScaleList();
+  });
   $("menuBtn").addEventListener("click", (e) => openSheet("menuSheet", e.currentTarget));
   $("scrim").addEventListener("click", () => closeSheet());
   document.querySelectorAll("[data-close]").forEach((b) => b.addEventListener("click", () => closeSheet()));
@@ -382,6 +578,15 @@
   bindSeg($("accSeg"), "value", (v) => set({ preferredAccidental: v }));
   bindSeg($("fretSeg"), "value", (v) => set({ fretRange: Number(v) }));
   bindSeg($("speedSeg"), "value", (v) => set({ speed: v }));
+  bindSeg($("voiceSeg"), "value", (v) => { set({ voice: v }); preview(); });
+  bindSeg($("ringSeg"), "value", (v) => { set({ ring: v }); preview(); });
+
+  /** Lets the player hear a sound choice straight away: root, then fifth. */
+  function preview() {
+    if (state.playbackState === "playing") return;
+    const root = Fret.playbackSequence(key, "up")[0] + 12;
+    Audio.playSequence([root, root + 7], 0.28, null, null);
+  }
 
   $("chromaticToggle").addEventListener("click", () => set({ showChromatic: !state.showChromatic }));
   $("tapSoundToggle").addEventListener("click", () => set({ tapSound: !state.tapSound }));
@@ -418,6 +623,8 @@
   /* ---------------------------------------------------------------- boot */
 
   applyTheme();
+  Audio.setVoice(state.voice);
+  Audio.setRing(state.ring);
   rebuildKey();
   buildPickers();
   renderPickers();

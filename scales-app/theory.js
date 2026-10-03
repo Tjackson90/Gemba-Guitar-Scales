@@ -9,9 +9,9 @@
  * Loads as a browser global (window.GembaTheory) or a CommonJS module (tests).
  */
 (function (root, factory) {
-  if (typeof module === "object" && module.exports) module.exports = factory();
-  else root.GembaTheory = factory();
-})(typeof self !== "undefined" ? self : this, function () {
+  if (typeof module === "object" && module.exports) module.exports = factory(require("./scale-catalog.js"));
+  else root.GembaTheory = factory(root.GembaScaleCatalog);
+})(typeof self !== "undefined" ? self : this, function (Catalog) {
   "use strict";
 
   const SHARP = "♯"; // ♯
@@ -37,21 +37,16 @@
     FLAT + "5", "5", FLAT + "6", "6", FLAT + "7", "7"
   ];
 
-  /**
-   * Scale catalogue. Adding a scale is one entry here.
-   *   intervals - semitones above the root, ascending, starting at 0
-   *   degrees   - optional per-interval labels, for scales whose degrees
-   *               differ from CHROMATIC_DEGREES (e.g. Lydian's ♯4)
-   */
-  const SCALES = [
-    { id: "major",            name: "Major",            intervals: [0, 2, 4, 5, 7, 9, 11] },
-    { id: "natural-minor",    name: "Natural Minor",    intervals: [0, 2, 3, 5, 7, 8, 10] },
-    { id: "major-pentatonic", name: "Major Pentatonic", intervals: [0, 2, 4, 7, 9] },
-    { id: "minor-pentatonic", name: "Minor Pentatonic", intervals: [0, 3, 5, 7, 10] },
-    { id: "blues",            name: "Blues",            intervals: [0, 3, 5, 6, 7, 10] },
-    { id: "harmonic-minor",   name: "Harmonic Minor",   intervals: [0, 2, 3, 5, 7, 8, 11] },
-    { id: "melodic-minor",    name: "Melodic Minor",    intervals: [0, 2, 3, 5, 7, 9, 11] }
-  ];
+  /** ASCII degree names from the catalogue ("b3", "#4", "bb7") -> glyphs. */
+  function glyphs(label) {
+    return label.replace(/b/g, FLAT).replace(/#/g, SHARP);
+  }
+
+  /* The catalogue lives in scale-catalog.js; adding a scale is one entry there. */
+  const SCALES = Catalog.SCALES.map((s) => Object.assign({}, s, {
+    aka: s.aka || [],
+    degrees: s.degrees ? s.degrees.split(" ").map(glyphs) : null
+  }));
 
   const SCALE_BY_ID = Object.create(null);
   SCALES.forEach((s) => { SCALE_BY_ID[s.id] = s; });
@@ -68,6 +63,20 @@
     return scale.intervals.map((iv, i) =>
       (scale.degrees && scale.degrees[i]) || CHROMATIC_DEGREES[iv]);
   }
+
+  /**
+   * Picker groups, resolved to scales: [{ id, name, items: [{ scale, label }] }]
+   * where label is the group's name for it (Major appears as "Ionian").
+   */
+  const GROUPS = Catalog.GROUPS.map((g) => ({
+    id: g.id,
+    name: g.name,
+    items: g.items.map((item) => {
+      const id = Array.isArray(item) ? item[0] : item;
+      const scale = SCALE_BY_ID[id];
+      return { scale, label: Array.isArray(item) ? item[1] : scale.name };
+    })
+  }));
 
   /** "♭3" -> 3, "♯4" -> 4, "5" -> 5 */
   function degreeNumber(label) {
@@ -249,6 +258,7 @@
     FLAT_NAMES,
     CHROMATIC_DEGREES,
     SCALES,
+    GROUPS,
     mod12,
     getScale,
     degreeLabels,

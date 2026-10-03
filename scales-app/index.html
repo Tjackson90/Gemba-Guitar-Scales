@@ -48,7 +48,7 @@
       </button>
 
       <button class="scale-btn" id="scaleBtn" type="button"
-              aria-haspopup="dialog" aria-controls="scaleSheet">
+              aria-haspopup="dialog" aria-controls="scalePage" aria-expanded="false">
         <span class="scale-btn-name" id="scaleName">Major Pentatonic</span>
         <span class="chev" aria-hidden="true">&#8964;</span>
       </button>
@@ -118,16 +118,31 @@
   </div>
 </aside>
 
-<aside class="sheet" id="scaleSheet" role="dialog" aria-modal="true" aria-labelledby="scaleSheetTitle" aria-hidden="true">
-  <header class="sheet-head">
-    <h2 class="sheet-title" id="scaleSheetTitle">Scale</h2>
-    <button class="sheet-close" type="button" data-close>Done</button>
+<!-- Scale browser: its own screen, not a sheet - the catalogue is too big for one. -->
+<section class="page" id="scalePage" role="dialog" aria-modal="true" aria-labelledby="scalePageTitle" aria-hidden="true">
+  <header class="page-head">
+    <button class="icon-btn" type="button" data-close aria-label="Back to the fretboard">
+      <svg class="icon" viewBox="-12 -12 24 24" aria-hidden="true"><path d="M5 -8L-3 0L5 8"/></svg>
+    </button>
+    <h2 class="sheet-title page-title" id="scalePageTitle">Scales</h2>
+
+    <div class="segmented page-tabs" id="scaleTabs" role="tablist" aria-label="Scale lists">
+      <button class="seg" type="button" role="tab" data-tab="all" aria-controls="scaleList">All</button>
+      <button class="seg" type="button" role="tab" data-tab="favorites" aria-controls="scaleList">
+        <svg class="tab-star" viewBox="-12 -12 24 24" aria-hidden="true"><path d="M0 -9L2.6 -3.2L9 -2.8L4.1 1.4L5.6 7.6L0 4.3L-5.6 7.6L-4.1 1.4L-9 -2.8L-2.6 -3.2Z"/></svg>
+        Favorites
+      </button>
+    </div>
+
+    <label class="search">
+      <svg class="icon" viewBox="-12 -12 24 24" aria-hidden="true"><circle cx="-2" cy="-2" r="6"/><path d="M2.5 2.5L8 8"/></svg>
+      <input id="scaleSearch" type="search" placeholder="Search scales" autocomplete="off" spellcheck="false" aria-label="Search scales" />
+    </label>
   </header>
-  <div class="sheet-body">
-    <!-- Generated from GembaTheory.SCALES in app.js -->
-    <div class="scale-list" id="scaleList" role="radiogroup" aria-labelledby="scaleSheetTitle"></div>
-  </div>
-</aside>
+
+  <!-- Generated from GembaTheory.GROUPS in app.js -->
+  <div class="page-body" id="scaleList"></div>
+</section>
 
 <aside class="sheet" id="menuSheet" role="dialog" aria-modal="true" aria-labelledby="menuSheetTitle" aria-hidden="true">
   <header class="sheet-head">
@@ -138,6 +153,40 @@
     <button class="sheet-close" type="button" data-close>Done</button>
   </header>
   <div class="sheet-body">
+
+    <div class="field">
+      <span class="field-label" id="voiceLabel">Sound</span>
+      <!-- Generated from ScaleAudio.VOICES -->
+      <div class="segmented wrap-3" id="voiceSeg" role="radiogroup" aria-labelledby="voiceLabel"></div>
+    </div>
+
+    <div class="field">
+      <span class="field-label" id="ringLabel">Ring</span>
+      <div class="segmented" id="ringSeg" role="radiogroup" aria-labelledby="ringLabel">
+        <button class="seg" type="button" role="radio" data-value="short">Short</button>
+        <button class="seg" type="button" role="radio" data-value="medium">Medium</button>
+        <button class="seg" type="button" role="radio" data-value="long">Long</button>
+      </div>
+    </div>
+
+    <div class="field">
+      <span class="field-label" id="dirLabel">Playback direction</span>
+      <div class="segmented" id="dirSeg2" role="radiogroup" aria-labelledby="dirLabel">
+        <button class="seg" type="button" role="radio" data-dir="up">Up</button>
+        <button class="seg" type="button" role="radio" data-dir="down">Down</button>
+        <button class="seg" type="button" role="radio" data-dir="updown">Up + down</button>
+      </div>
+    </div>
+
+    <div class="field">
+      <span class="field-label" id="speedLabel">Playback speed</span>
+      <div class="segmented" id="speedSeg" role="radiogroup" aria-labelledby="speedLabel">
+        <button class="seg" type="button" role="radio" data-value="slow">Slow</button>
+        <button class="seg" type="button" role="radio" data-value="medium">Medium</button>
+        <button class="seg" type="button" role="radio" data-value="fast">Fast</button>
+      </div>
+    </div>
+
 
     <div class="field">
       <span class="field-label" id="themeLabel">Theme</span>
@@ -163,24 +212,6 @@
       <div class="segmented" id="fretSeg" role="radiogroup" aria-labelledby="fretLabel"></div>
     </div>
 
-    <div class="field">
-      <span class="field-label" id="dirLabel">Playback direction</span>
-      <div class="segmented" id="dirSeg2" role="radiogroup" aria-labelledby="dirLabel">
-        <button class="seg" type="button" role="radio" data-dir="up">Up</button>
-        <button class="seg" type="button" role="radio" data-dir="down">Down</button>
-        <button class="seg" type="button" role="radio" data-dir="updown">Up + down</button>
-      </div>
-    </div>
-
-    <div class="field">
-      <span class="field-label" id="speedLabel">Playback speed</span>
-      <div class="segmented" id="speedSeg" role="radiogroup" aria-labelledby="speedLabel">
-        <button class="seg" type="button" role="radio" data-value="slow">Slow</button>
-        <button class="seg" type="button" role="radio" data-value="medium">Medium</button>
-        <button class="seg" type="button" role="radio" data-value="fast">Fast</button>
-      </div>
-    </div>
-
     <div class="toggle-row">
       <div class="toggle-text">
         <span class="toggle-title">Chromatic background</span>
@@ -201,6 +232,7 @@
   </div>
 </aside>
 
+  <script src="scale-catalog.js"></script>
   <script src="theory.js"></script>
   <script src="fretboard.js"></script>
   <script src="audio.js"></script>
