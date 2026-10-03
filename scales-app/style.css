@@ -1,0 +1,790 @@
+/* ==========================================================================
+   Gemba Scales
+
+   Built on the Gemba design system shared by Gemba Tuner and Gemba Metronome:
+   warm near-black / parchment surfaces, 1px hairlines, 16px radii, widely
+   spaced small capitals, serif for the big readout, monospace for numbers,
+   Android's own sans for everything else.
+
+   What is new here is the fretboard: a cool cyan neck with coral roots and
+   the family's sage green for scale tones. The accent for selected controls
+   moves from the tuner's gold to the neck's cyan so the toolbar and the
+   board read as one instrument.
+   ========================================================================== */
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  /* Gemba neutrals, dark */
+  --bg:       #121214;
+  --panel:    #1D1D20;
+  --ink:      #F1ECE4;
+  --muted:    #99948D;
+  --border:   #333236;
+  --scrim:    rgba(0, 0, 0, 0.55);
+
+  /* Selection accent: the neck's cyan */
+  --accent:    #84C9D4;
+  --on-accent: #121214;
+  --active:    #1A2B2F;
+
+  /* Notes */
+  --root:     #EE8F77;   /* coral */
+  --on-root:  #1B1210;
+  --tone:     #A6CDB3;   /* Gemba sage green */
+  --on-tone:  #121214;
+
+  /* Neck */
+  --wood:     #112A30;
+  --fret:     #3F7883;
+  --nut:      #D9E4E1;
+  --string:   #CDC6BA;
+  --inlay:    #22474F;
+  --bg-label: #7FA8AF;
+
+  --r:      16px;
+  --r-tab:  12px;
+  --touch:  48px;
+
+  --ease: cubic-bezier(0.32, 0.72, 0, 1);
+  --fast: 140ms;
+  --med:  220ms;
+
+  /* Capacitor injects --safe-area-inset-*; env() covers browsers. */
+  --safe-t: var(--safe-area-inset-top, env(safe-area-inset-top, 0px));
+  --safe-b: var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px));
+  --safe-l: var(--safe-area-inset-left, env(safe-area-inset-left, 0px));
+  --safe-r: var(--safe-area-inset-right, env(safe-area-inset-right, 0px));
+
+  /* Generic families, as in the tuner and metronome: in an Android WebView
+     these resolve to the system sans / serif / mono the native apps use. */
+  --font-ui:    sans-serif;
+  --font-serif: serif;
+  --font-mono:  monospace;
+}
+
+:root[data-theme="light"] {
+  --bg:       #F4F0E8;
+  --panel:    #EAE5DC;
+  --ink:      #27262A;
+  --muted:    #767065;
+  --border:   #D8D1C6;
+  --scrim:    rgba(39, 38, 42, 0.35);
+
+  --accent:    #1E7684;
+  --on-accent: #FFFFFF;
+  --active:    #D9ECEE;
+
+  --root:     #D45B45;
+  --on-root:  #FFFFFF;
+  --tone:     #3A8761;
+  --on-tone:  #FFFFFF;
+
+  --wood:     #CDE8EC;
+  --fret:     #86BCC5;
+  --nut:      #6F959B;
+  --string:   #7F8E90;
+  --inlay:    #A8D2D9;
+  --bg-label: #3E6E77;
+}
+
+/* ------------------------------------------------------------- foundation */
+
+html, body {
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-ui);
+  font-size: 15px;
+  line-height: 1.35;
+  -webkit-font-smoothing: antialiased;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+button {
+  font-family: var(--font-ui);
+  color: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.screen {
+  height: 100vh;
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  padding-top: var(--safe-t);
+  padding-left: var(--safe-l);
+  padding-right: var(--safe-r);
+}
+
+/* ---------------------------------------------------------------- toolbar */
+
+.toolbar {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  padding: 8px 12px 6px;
+  border-bottom: 1px solid var(--border);
+}
+
+.tb-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tb-key {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.icon-btn {
+  width: var(--touch);
+  height: var(--touch);
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  border: none;
+  border-radius: 50%;
+  background: none;
+  color: var(--muted);
+  transition: color var(--fast) var(--ease), transform var(--fast) var(--ease);
+}
+
+.icon-btn:active { transform: scale(0.92); color: var(--ink); }
+
+/* Line icons from the tuner's ControlIcon: 1.6 stroke, round ends. */
+.icon {
+  width: 22px;
+  height: 22px;
+  overflow: visible;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* Brand lockup, only where there is room to spare. */
+.brand {
+  display: none;
+  flex-direction: column;
+  margin: 0 10px 0 2px;
+}
+
+.brand-eyebrow {
+  font-size: 12px;
+  letter-spacing: 0.24em;
+  color: var(--muted);
+  line-height: 1;
+}
+
+.brand-title {
+  margin-top: 4px;
+  font-size: 17px;
+  font-weight: 500;
+  letter-spacing: 0.19em;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+@media (min-width: 1100px) {
+  .brand { display: flex; }
+}
+
+/* Root: the one big serif letter, like the tuner's note readout. */
+.root-btn {
+  flex: 0 0 auto;
+  height: var(--touch);
+  min-width: 92px;
+  padding: 0 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  background: var(--panel);
+  transition: border-color var(--fast) var(--ease), transform var(--fast) var(--ease);
+}
+
+.root-btn:active { transform: scale(0.96); border-color: var(--accent); }
+
+.root-btn-label {
+  font-size: 12px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.root-btn-note {
+  font-family: var(--font-serif);
+  font-size: 27px;
+  line-height: 1;
+  color: var(--root);
+  white-space: nowrap;
+}
+
+/* Scale: the tuner's bare "Standard ⌄" text button. */
+.scale-btn {
+  flex: 0 1 auto;
+  min-width: 0;
+  height: var(--touch);
+  padding: 0 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: none;
+  border-radius: var(--r-tab);
+  background: none;
+  font-size: 18px;
+  font-weight: 500;
+  text-align: left;
+}
+
+.scale-btn-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chev {
+  font-size: 14px;
+  color: var(--muted);
+  transform: translateY(-3px);
+}
+
+.scale-btn:active { color: var(--accent); }
+
+/* ------------------------------------------------------------ segmented */
+
+.segmented {
+  display: flex;
+  padding: 3px;
+  background: var(--panel);
+  border-radius: var(--r);
+}
+
+.seg {
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 42px;
+  padding: 4px 12px;
+  border: 1px solid transparent;
+  border-radius: var(--r-tab);
+  background: transparent;
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+  transition: background var(--fast) var(--ease), color var(--fast) var(--ease),
+              border-color var(--fast) var(--ease);
+}
+
+.seg:active { color: var(--ink); }
+
+.seg.is-active {
+  background: var(--bg);
+  border-color: var(--border);
+  color: var(--ink);
+}
+
+.dir-seg .seg { padding: 4px 8px; min-width: 42px; }
+.dir-seg .seg.is-active { color: var(--accent); }
+
+/* Neck navigation */
+.nav-pair { display: flex; gap: 4px; }
+
+.nav-btn {
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: var(--panel);
+  color: var(--ink);
+  transition: color var(--fast) var(--ease), border-color var(--fast) var(--ease),
+              opacity var(--fast) var(--ease), transform var(--fast) var(--ease);
+}
+
+.nav-btn:active:not(:disabled) { color: var(--accent); border-color: var(--accent); transform: scale(0.92); }
+.nav-btn:disabled { opacity: 0.3; cursor: default; }
+
+/* Play: the family's filled circle, in this app's accent. */
+.btn-play {
+  flex: 0 0 auto;
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  border: none;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--on-accent);
+  transition: transform var(--fast) var(--ease);
+}
+
+.btn-play:active { transform: scale(0.94); }
+
+.play-glyph {
+  width: 20px;
+  height: 20px;
+  fill: currentColor;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linejoin: round;
+}
+
+.glyph-stop { display: none; }
+.btn-play.is-playing .glyph-play { display: none; }
+.btn-play.is-playing .glyph-stop { display: inline; }
+
+/* ---------------------------------------------------------------- stage */
+
+.stage {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  position: relative;
+}
+
+.board-scroll {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  overflow: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+  outline: none;
+}
+
+.board-scroll::-webkit-scrollbar { height: 6px; width: 6px; }
+.board-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+/* Auto margins centre the board without clipping when it overflows. */
+.fretboard {
+  flex: 0 0 auto;
+  margin: auto;
+  display: block;
+  overflow: visible;
+}
+
+/* ------------------------------------------------------------ fretboard */
+
+.fb-wood   { fill: var(--wood); }
+.fb-fret   { stroke: var(--fret); stroke-width: 2; }
+.fb-nut    { fill: var(--nut); }
+.fb-string { stroke: var(--string); stroke-linecap: round; opacity: 0.9; }
+.fb-inlay  { fill: var(--inlay); }
+
+.fb-num {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  fill: var(--muted);
+}
+
+.fb-num.is-marker { fill: var(--accent); font-weight: 700; }
+.fb-num.is-open { font-size: 11px; letter-spacing: 0.08em; opacity: 0.75; }
+
+.cell { cursor: pointer; }
+.cell .hit { fill: transparent; }
+
+/* Chromatic context: every fret labelled, quietly. */
+.bg-label {
+  font-family: var(--font-ui);
+  font-weight: 500;
+  fill: var(--bg-label);
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.hide-chromatic .bg-label,
+.cell.in-scale .bg-label { display: none; }
+
+.note-dot,
+.note-label,
+.note-halo { pointer-events: none; }
+
+.cell.out .note-dot,
+.cell.out .note-label { display: none; }
+
+.note-dot {
+  fill: var(--tone);
+  transition: fill var(--fast) var(--ease);
+}
+
+.cell.is-root .note-dot { fill: var(--root); }
+
+.note-label {
+  font-family: var(--font-ui);
+  font-weight: 600;
+  fill: var(--on-tone);
+}
+
+.cell.is-root .note-label { fill: var(--on-root); font-weight: 700; }
+
+.note-halo {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 2.5;
+  opacity: 0;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.cell.is-sounding .note-halo { animation: halo 520ms var(--ease) forwards; }
+.cell.out.is-sounding .bg-label { opacity: 1; fill: var(--ink); }
+
+@keyframes halo {
+  0%   { opacity: 1; transform: scale(0.85); }
+  60%  { opacity: 1; transform: scale(1.05); }
+  100% { opacity: 0.85; transform: scale(1); }
+}
+
+/* --------------------------------------------------------------- legend */
+
+.legend {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 6px 12px calc(8px + var(--safe-b));
+  border-top: 1px solid var(--border);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.legend::-webkit-scrollbar { display: none; }
+
+.legend-title {
+  margin-right: 10px;
+  font-size: 12px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.chip {
+  flex: 0 0 auto;
+  min-width: 42px;
+  padding: 4px 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-tab);
+  background: var(--panel);
+  transition: border-color var(--fast) var(--ease), background var(--fast) var(--ease);
+}
+
+.chip-note { font-size: 15px; font-weight: 500; line-height: 1.1; }
+.chip-deg  { font-family: var(--font-mono); font-size: 12px; color: var(--muted); line-height: 1.1; }
+.chip.is-root .chip-note { color: var(--root); }
+
+.chip.is-sounding {
+  border-color: var(--accent);
+  background: var(--active);
+}
+
+.rotate-hint {
+  display: none;
+  padding: 0 16px calc(8px + var(--safe-b));
+  font-size: 12px;
+  color: var(--muted);
+  text-align: center;
+}
+
+/* ================================================================ sheets */
+
+.scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  background: var(--scrim);
+  opacity: 0;
+  transition: opacity var(--med) var(--ease);
+}
+
+.scrim.is-open { opacity: 1; }
+.scrim[hidden] { display: none; }
+
+.sheet {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 50;
+  width: 100%;
+  max-width: 600px;
+  margin: 0 auto;
+  max-height: 90dvh;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-bottom: none;
+  border-radius: 20px 20px 0 0;
+  transform: translateY(101%);
+  visibility: hidden;
+  transition: transform 300ms var(--ease), visibility 0s linear 300ms;
+  padding-bottom: var(--safe-b);
+}
+
+.sheet.is-open {
+  transform: translateY(0);
+  visibility: visible;
+  transition: transform 300ms var(--ease), visibility 0s;
+}
+
+.sheet-head {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 12px 8px 24px;
+}
+
+.sheet-brand { display: flex; flex-direction: column; gap: 4px; }
+
+/* Tuner's page titles: serif 28. */
+.sheet-title {
+  font-family: var(--font-serif);
+  font-size: 28px;
+  font-weight: 400;
+  line-height: 1.1;
+}
+
+.sheet-close {
+  min-height: var(--touch);
+  padding: 0 14px;
+  border: none;
+  border-radius: var(--r-tab);
+  background: none;
+  color: var(--accent);
+  font-size: 15px;
+  font-weight: 500;
+}
+
+.sheet-close:active { background: var(--active); }
+
+.sheet-body {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 4px 24px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* Root picker */
+.root-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 6px;
+}
+
+.root-opt {
+  min-height: 64px;
+  padding: 6px 2px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  background: var(--panel);
+  transition: border-color var(--fast) var(--ease), background var(--fast) var(--ease);
+}
+
+.root-opt-main {
+  font-family: var(--font-serif);
+  font-size: 26px;
+  line-height: 1;
+}
+
+.root-opt-alt {
+  font-family: var(--font-serif);
+  font-size: 15px;
+  line-height: 1;
+  color: var(--muted);
+}
+
+.root-opt.is-active {
+  border-color: var(--root);
+  background: var(--active);
+}
+
+.root-opt.is-active .root-opt-main { color: var(--root); }
+
+/* Scale picker */
+.scale-list { display: flex; flex-direction: column; gap: 6px; }
+
+.scale-opt {
+  min-height: 56px;
+  padding: 8px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  background: var(--panel);
+  text-align: left;
+  transition: border-color var(--fast) var(--ease), background var(--fast) var(--ease);
+}
+
+.scale-opt-name { font-size: 16px; font-weight: 500; }
+
+.scale-opt-formula {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.scale-opt.is-active {
+  border-color: var(--accent);
+  background: var(--active);
+}
+
+.scale-opt.is-active .scale-opt-name { color: var(--accent); }
+
+/* Settings fields */
+.field { display: flex; flex-direction: column; gap: 10px; }
+
+.field-label {
+  font-size: 12px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.field-hint { font-size: 12px; color: var(--muted); }
+
+.toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: var(--touch);
+}
+
+.toggle-text { display: flex; flex-direction: column; gap: 3px; }
+.toggle-title { font-size: 15px; }
+.toggle-sub { font-size: 12px; color: var(--muted); }
+
+.switch {
+  flex: 0 0 auto;
+  width: 48px;
+  height: 28px;
+  padding: 3px;
+  display: flex;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--panel);
+  transition: background var(--med) var(--ease), border-color var(--med) var(--ease);
+}
+
+.switch span {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--muted);
+  transition: transform var(--med) var(--ease), background var(--med) var(--ease);
+}
+
+.switch[aria-checked="true"] { background: var(--accent); border-color: var(--accent); }
+.switch[aria-checked="true"] span { transform: translateX(20px); background: var(--on-accent); }
+
+/* ---------------------------------------------------------- interaction */
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ========================================================== responsive */
+
+/* Narrow (portrait phones, split screen): the key controls and play share
+   the first row; view controls drop to a second. */
+@media (max-width: 760px) {
+  .toolbar { column-gap: 8px; }
+  .tb-key  { order: 1; flex: 1 1 0; }
+  .tb-play { order: 2; }
+  .tb-view {
+    order: 3;
+    flex: 1 0 100%;
+    justify-content: space-between;
+  }
+  .tb-view .segmented { flex: 1 1 auto; max-width: 260px; }
+  .dir-seg { display: none; }       /* still set from Settings > Playback direction */
+  .scale-btn { font-size: 16px; padding: 0 6px; }
+  .root-btn { min-width: 0; }
+  .root-btn-label { display: none; }
+  .root-grid { grid-template-columns: repeat(4, 1fr); }
+  .scale-opt-formula { display: none; }
+}
+
+@media (max-width: 760px) and (orientation: portrait) {
+  .rotate-hint.is-needed { display: block; }
+}
+
+/* Short landscape phones: every pixel goes to the neck. */
+@media (max-height: 460px) {
+  .toolbar { padding: 4px 10px 4px; }
+  .seg { min-height: 40px; }
+  .legend { padding-top: 4px; padding-bottom: calc(4px + var(--safe-b)); }
+  .chip { padding: 2px 8px; flex-direction: row; gap: 6px; align-items: baseline; }
+  .sheet { max-height: 96dvh; }
+  .sheet-head { padding-top: 8px; padding-bottom: 4px; }
+  .root-opt { min-height: 54px; }
+}
+
+@media (max-height: 340px) {
+  .legend { display: none; }
+}

@@ -1,0 +1,10 @@
+{
+  "appId": "com.ty.scales",
+  "appName": "Gemba Scales",
+  "webDir": "scales-app",
+  "plugins": {
+    "SystemBars": {
+      "style": "DARK"
+    }
+  }
+}

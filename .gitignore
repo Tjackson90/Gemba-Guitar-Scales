@@ -1,0 +1,26 @@
+# dependencies
+node_modules/
+
+# Android build output
+android/build/
+android/app/build/
+android/.gradle/
+android/.idea/
+android/local.properties
+android/capacitor-cordova-android-plugins/
+*.apk
+*.aab
+*.keystore
+
+# Capacitor copies the web app here on sync
+android/app/src/main/assets/public/
+android/app/src/main/assets/capacitor.config.json
+android/app/src/main/assets/capacitor.plugins.json
+
+# OS
+.DS_Store
+Thumbs.db
+
+# release signing - never commit
+keystore.properties
+*.jks

@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no, maximum-scale=1" />
+  <meta name="color-scheme" content="dark light" />
+  <meta name="theme-color" content="#121214" id="themeColorMeta" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="description" content="See any scale across the whole guitar neck: roots, intervals and note names." />
+  <title>Gemba Scales</title>
+
+  <!-- Applied before first paint so a saved light theme never flashes dark. -->
+  <script>
+    (function () {
+      try {
+        var t = localStorage.getItem("gemba-scales-theme") || "dark";
+        document.documentElement.setAttribute("data-theme", t);
+      } catch (e) {}
+    })();
+  </script>
+
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<div class="screen">
+
+  <!-- ================================================================ toolbar -->
+  <header class="toolbar">
+    <div class="tb-group tb-key">
+      <button class="icon-btn" id="menuBtn" type="button"
+              aria-label="Open settings" aria-expanded="false" aria-controls="menuSheet">
+        <svg class="icon" viewBox="-12 -12 24 24" aria-hidden="true">
+          <path d="M-9 -6H9M-9 0H9M-9 6H9"/>
+        </svg>
+      </button>
+
+      <div class="brand" aria-hidden="true">
+        <span class="brand-eyebrow">GEMBA</span>
+        <span class="brand-title">SCALES</span>
+      </div>
+
+      <button class="root-btn" id="rootBtn" type="button"
+              aria-haspopup="dialog" aria-controls="rootSheet">
+        <span class="root-btn-label">Root</span>
+        <span class="root-btn-note" id="rootNote">G</span>
+      </button>
+
+      <button class="scale-btn" id="scaleBtn" type="button"
+              aria-haspopup="dialog" aria-controls="scaleSheet">
+        <span class="scale-btn-name" id="scaleName">Major Pentatonic</span>
+        <span class="chev" aria-hidden="true">&#8964;</span>
+      </button>
+    </div>
+
+    <div class="tb-group tb-view">
+      <div class="segmented" id="modeSeg" role="radiogroup" aria-label="Label notes by">
+        <button class="seg" type="button" role="radio" data-mode="intervals">Intervals</button>
+        <button class="seg" type="button" role="radio" data-mode="notes">Notes</button>
+      </div>
+
+      <div class="nav-pair" role="group" aria-label="Move along the neck">
+        <button class="nav-btn" id="navLeft" type="button" aria-label="Toward the nut">
+          <svg class="icon" viewBox="-12 -12 24 24" aria-hidden="true"><path d="M4 -7L-4 0L4 7"/></svg>
+        </button>
+        <button class="nav-btn" id="navRight" type="button" aria-label="Toward the body">
+          <svg class="icon" viewBox="-12 -12 24 24" aria-hidden="true"><path d="M-4 -7L4 0L-4 7"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <div class="tb-group tb-play">
+      <div class="segmented dir-seg" id="dirSeg" role="radiogroup" aria-label="Playback direction">
+        <button class="seg" type="button" role="radio" data-dir="up" aria-label="Ascending">
+          <svg class="icon" viewBox="-12 -12 24 24" aria-hidden="true"><path d="M0 8V-8M-6 -2L0 -8L6 -2"/></svg>
+        </button>
+        <button class="seg" type="button" role="radio" data-dir="down" aria-label="Descending">
+          <svg class="icon" viewBox="-12 -12 24 24" aria-hidden="true"><path d="M0 -8V8M-6 2L0 8L6 2"/></svg>
+        </button>
+        <button class="seg" type="button" role="radio" data-dir="updown" aria-label="Ascending then descending">
+          <svg class="icon" viewBox="-12 -12 24 24" aria-hidden="true"><path d="M-4 8V-8M-9 -3L-4 -8L1 -3M4 -8V8M-1 3L4 8L9 3"/></svg>
+        </button>
+      </div>
+
+      <button class="btn-play" id="playBtn" type="button" aria-pressed="false" aria-label="Play scale">
+        <svg class="play-glyph" viewBox="-12 -12 24 24" aria-hidden="true">
+          <path class="glyph-play" d="M-4.5 -7.5L8 0L-4.5 7.5Z"/>
+          <rect class="glyph-stop" x="-6" y="-6" width="12" height="12" rx="1.5"/>
+        </svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- ============================================================== fretboard -->
+  <main class="stage">
+    <div class="board-scroll" id="boardScroll" tabindex="0"
+         aria-label="Fretboard. Scroll sideways to move along the neck."></div>
+    <p class="sr-only" id="boardSummary" aria-live="polite"></p>
+  </main>
+
+  <!-- Slim legend: the scale as notes over degrees, in order. -->
+  <footer class="legend" id="legend" aria-label="Scale tones"></footer>
+  <p class="rotate-hint" id="rotateHint">Turn your phone sideways to see the whole neck</p>
+</div>
+
+<!-- ================================================================== sheets -->
+<div class="scrim" id="scrim" hidden></div>
+
+<aside class="sheet" id="rootSheet" role="dialog" aria-modal="true" aria-labelledby="rootSheetTitle" aria-hidden="true">
+  <header class="sheet-head">
+    <h2 class="sheet-title" id="rootSheetTitle">Root</h2>
+    <button class="sheet-close" type="button" data-close>Done</button>
+  </header>
+  <div class="sheet-body">
+    <!-- Generated from GembaTheory in app.js -->
+    <div class="root-grid" id="rootGrid" role="radiogroup" aria-labelledby="rootSheetTitle"></div>
+  </div>
+</aside>
+
+<aside class="sheet" id="scaleSheet" role="dialog" aria-modal="true" aria-labelledby="scaleSheetTitle" aria-hidden="true">
+  <header class="sheet-head">
+    <h2 class="sheet-title" id="scaleSheetTitle">Scale</h2>
+    <button class="sheet-close" type="button" data-close>Done</button>
+  </header>
+  <div class="sheet-body">
+    <!-- Generated from GembaTheory.SCALES in app.js -->
+    <div class="scale-list" id="scaleList" role="radiogroup" aria-labelledby="scaleSheetTitle"></div>
+  </div>
+</aside>
+
+<aside class="sheet" id="menuSheet" role="dialog" aria-modal="true" aria-labelledby="menuSheetTitle" aria-hidden="true">
+  <header class="sheet-head">
+    <div class="sheet-brand">
+      <span class="brand-eyebrow">GEMBA</span>
+      <h2 class="sheet-title" id="menuSheetTitle">Settings</h2>
+    </div>
+    <button class="sheet-close" type="button" data-close>Done</button>
+  </header>
+  <div class="sheet-body">
+
+    <div class="field">
+      <span class="field-label" id="themeLabel">Theme</span>
+      <div class="segmented" id="themeSeg" role="radiogroup" aria-labelledby="themeLabel">
+        <button class="seg" type="button" role="radio" data-value="dark">Dark</button>
+        <button class="seg" type="button" role="radio" data-value="light">Light</button>
+      </div>
+    </div>
+
+    <div class="field">
+      <span class="field-label" id="accLabel">Accidentals</span>
+      <div class="segmented" id="accSeg" role="radiogroup" aria-labelledby="accLabel">
+        <button class="seg" type="button" role="radio" data-value="auto">Auto</button>
+        <button class="seg" type="button" role="radio" data-value="sharp">&#9839; Sharps</button>
+        <button class="seg" type="button" role="radio" data-value="flat">&#9837; Flats</button>
+      </div>
+      <span class="field-hint">Auto picks the spelling with the fewest accidentals for the key.</span>
+    </div>
+
+    <div class="field">
+      <span class="field-label" id="fretLabel">Frets</span>
+      <!-- Generated from GembaFretboard.FRET_RANGES -->
+      <div class="segmented" id="fretSeg" role="radiogroup" aria-labelledby="fretLabel"></div>
+    </div>
+
+    <div class="field">
+      <span class="field-label" id="dirLabel">Playback direction</span>
+      <div class="segmented" id="dirSeg2" role="radiogroup" aria-labelledby="dirLabel">
+        <button class="seg" type="button" role="radio" data-dir="up">Up</button>
+        <button class="seg" type="button" role="radio" data-dir="down">Down</button>
+        <button class="seg" type="button" role="radio" data-dir="updown">Up + down</button>
+      </div>
+    </div>
+
+    <div class="field">
+      <span class="field-label" id="speedLabel">Playback speed</span>
+      <div class="segmented" id="speedSeg" role="radiogroup" aria-labelledby="speedLabel">
+        <button class="seg" type="button" role="radio" data-value="slow">Slow</button>
+        <button class="seg" type="button" role="radio" data-value="medium">Medium</button>
+        <button class="seg" type="button" role="radio" data-value="fast">Fast</button>
+      </div>
+    </div>
+
+    <div class="toggle-row">
+      <div class="toggle-text">
+        <span class="toggle-title">Chromatic background</span>
+        <span class="toggle-sub">Faintly label every fret, in or out of the scale</span>
+      </div>
+      <button class="switch" id="chromaticToggle" type="button"
+              role="switch" aria-checked="true" aria-label="Chromatic background"><span></span></button>
+    </div>
+
+    <div class="toggle-row">
+      <div class="toggle-text">
+        <span class="toggle-title">Tap to hear</span>
+        <span class="toggle-sub">Play a note when you touch the fretboard</span>
+      </div>
+      <button class="switch" id="tapSoundToggle" type="button"
+              role="switch" aria-checked="true" aria-label="Tap to hear"><span></span></button>
+    </div>
+  </div>
+</aside>
+
+  <script src="theory.js"></script>
+  <script src="fretboard.js"></script>
+  <script src="audio.js"></script>
+  <script src="board-view.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

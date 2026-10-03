@@ -1,0 +1,20 @@
+{
+  "name": "gemba-scales",
+  "version": "0.1.0",
+  "description": "Gemba Scales - see any scale across the guitar neck (web + Capacitor Android).",
+  "main": "scales-app/index.html",
+  "scripts": {
+    "test": "node tests/run.js",
+    "sync": "npx cap sync android",
+    "open:android": "npx cap open android"
+  },
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "@capacitor/android": "^8.2.0",
+    "@capacitor/core": "^8.2.0"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^8.2.0"
+  }
+}
