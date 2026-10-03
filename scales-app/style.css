@@ -318,6 +318,36 @@ button {
 
 .chord-btn.is-active .chord-btn-label { color: var(--ink); font-family: var(--font-serif); font-size: 18px; }
 
+/* Progression button: names the progression while one is on. */
+.prog-btn {
+  flex: 0 0 auto;
+  height: 44px;
+  max-width: 150px;
+  padding: 0 12px 0 10px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  background: var(--panel);
+  color: var(--muted);
+  font-size: 15px;
+  font-weight: 500;
+  transition: border-color var(--fast) var(--ease), color var(--fast) var(--ease),
+              background var(--fast) var(--ease), transform var(--fast) var(--ease);
+}
+
+.prog-btn .icon { width: 20px; height: 20px; flex: 0 0 auto; }
+.prog-btn:active { transform: scale(0.96); }
+.prog-btn.is-active { border-color: var(--accent); background: var(--active); color: var(--accent); }
+.prog-btn.is-active .chord-btn-label { color: var(--ink); }
+
+/* Intervals / notes: one button showing what the neck is labelled with. */
+.mode-btn { width: 64px; font-family: var(--font-mono); font-size: 13px; color: var(--ink); }
+.mode-btn .mode-note { display: none; }
+.mode-btn.is-notes .mode-int { display: none; }
+.mode-btn.is-notes .mode-note { display: inline; }
+
 /* Square icon toggles (focus, direction). */
 .tool-btn {
   flex: 0 0 auto;
@@ -349,13 +379,6 @@ button {
 .dir-btn.dir-down .dir-down,
 .dir-btn.dir-updown .dir-updown { display: block; }
 
-/* Display-mode labels shorten on phones: "1 3 5" / "C E G". */
-.lbl-short { display: none; font-family: var(--font-mono); letter-spacing: 0.02em; }
-
-@media (max-width: 1000px) {
-  .lbl-long { display: none; }
-  .lbl-short { display: inline; }
-}
 
 /* ------------------------------------------------------------ segmented */
 
@@ -1135,6 +1158,118 @@ button {
 .chord-grid .chord-chip { width: 100%; }
 .chord-grid .chord-chip.fits .chord-chip-sub { color: var(--tone); }
 
+/* ====================================================== progression page */
+
+.prog-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 24px;
+  padding: 6px 0 14px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 4px;
+}
+
+.prog-options .field { flex: 1 1 280px; gap: 8px; }
+
+.prog-builder {
+  margin-top: 10px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  background: var(--panel);
+}
+
+.prog-draft {
+  min-height: 52px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 6px;
+  border: 1px dashed var(--border);
+  border-radius: var(--r-tab);
+  background: var(--bg);
+}
+
+.prog-draft-empty { padding: 0 8px; font-size: 13px; color: var(--muted); }
+
+.draft-step {
+  min-height: 40px;
+  padding: 2px 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--accent);
+  border-radius: 10px;
+  background: var(--active);
+  color: var(--ink);
+  line-height: 1.1;
+}
+
+.draft-step-num { font-family: var(--font-serif); font-size: 17px; }
+.draft-step-note { font-family: var(--font-mono); font-size: 11px; color: var(--muted); }
+
+.numeral-pad {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 4px;
+}
+
+.numeral {
+  min-height: 52px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-tab);
+  background: transparent;
+  color: var(--muted);
+}
+
+.numeral.in-scale { background: var(--bg); color: var(--ink); }
+.numeral:active { border-color: var(--accent); }
+.numeral-num { font-family: var(--font-serif); font-size: 17px; }
+.numeral-note { font-family: var(--font-mono); font-size: 11px; color: var(--muted); }
+
+.prog-save {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.prog-save .search { flex: 1 1 auto; max-width: none; }
+.prog-save .pill-btn:disabled { opacity: 0.4; }
+
+.row-delete {
+  flex: 0 0 auto;
+  width: 48px;
+  display: grid;
+  place-items: center;
+  border: none;
+  border-radius: 0 var(--r) var(--r) 0;
+  background: none;
+  color: var(--muted);
+  font-size: 22px;
+  line-height: 1;
+}
+
+.row-delete:active { color: var(--root); }
+
+/* While a progression plays, the legend names the step. */
+.legend-step {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--accent);
+  white-space: nowrap;
+  margin-right: 8px;
+}
+
 /* Settings fields */
 .field { display: flex; flex-direction: column; gap: 10px; }
 
@@ -1230,6 +1365,7 @@ button {
   .scale-grid { grid-template-columns: 1fr; }
   .chord-roots { grid-template-columns: repeat(6, minmax(0, 1fr)); }
   .chord-btn-label { display: none; }
+  .numeral-pad { grid-template-columns: repeat(6, minmax(0, 1fr)); }
   .scale-pick-formula { display: none; }
   .search { flex: 1 1 100%; order: 3; }
 }

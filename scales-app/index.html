@@ -80,14 +80,18 @@
         </svg>
       </button>
 
-      <div class="segmented" id="modeSeg" role="radiogroup" aria-label="Label notes by">
-        <button class="seg" type="button" role="radio" data-mode="intervals" aria-label="Intervals">
-          <span class="lbl-long">Intervals</span><span class="lbl-short">1&#8202;3&#8202;5</span>
-        </button>
-        <button class="seg" type="button" role="radio" data-mode="notes" aria-label="Notes">
-          <span class="lbl-long">Notes</span><span class="lbl-short">C&#8202;E&#8202;G</span>
-        </button>
-      </div>
+      <button class="prog-btn" id="progBtn" type="button"
+              aria-haspopup="dialog" aria-controls="progPage" aria-expanded="false">
+        <svg class="icon" viewBox="-12 -12 24 24" aria-hidden="true">
+          <path d="M-10 8V3M-4 8V-2M2 8V1M8 8V-7"/>
+        </svg>
+        <span class="chord-btn-label" id="progLabel">Prog</span>
+      </button>
+
+      <!-- One button flips the labels between intervals and note names. -->
+      <button class="tool-btn mode-btn" id="modeBtn" type="button">
+        <span class="mode-int">1&#8202;3&#8202;5</span><span class="mode-note">C&#8202;E&#8202;G</span>
+      </button>
 
       <div class="nav-pair" role="group" aria-label="Move along the neck">
         <button class="nav-btn" id="navLeft" type="button" aria-label="Toward the nut">
@@ -173,6 +177,48 @@
 
   <!-- Generated from GembaTheory.GROUPS in app.js -->
   <div class="page-body" id="scaleList"></div>
+</section>
+
+<!-- Progression picker and builder. -->
+<section class="page" id="progPage" role="dialog" aria-modal="true" aria-labelledby="progPageTitle" aria-hidden="true">
+  <header class="page-head">
+    <button class="icon-btn" type="button" data-close aria-label="Back to the fretboard">
+      <svg class="icon" viewBox="-12 -12 24 24" aria-hidden="true"><path d="M5 -8L-3 0L5 8"/></svg>
+    </button>
+    <div class="page-title-wrap">
+      <h2 class="sheet-title page-title" id="progPageTitle">Progression</h2>
+      <span class="page-sub" id="progPageSub"></span>
+    </div>
+
+    <div class="segmented page-tabs" id="progTabs" role="tablist" aria-label="Progression lists">
+      <button class="seg" type="button" role="tab" data-tab="popular" aria-controls="progBody">Popular</button>
+      <button class="seg" type="button" role="tab" data-tab="custom" aria-controls="progBody">Custom</button>
+    </div>
+
+    <button class="pill-btn" id="progClear" type="button">Turn off</button>
+  </header>
+
+  <div class="page-body" id="progBody">
+    <div class="prog-options">
+      <div class="field">
+        <span class="field-label" id="progStyleLabel">Each step plays</span>
+        <div class="segmented" id="progStyleSeg" role="radiogroup" aria-labelledby="progStyleLabel">
+          <button class="seg" type="button" role="radio" data-value="modes">Modes of the key</button>
+          <button class="seg" type="button" role="radio" data-value="moved">Same scale, moved</button>
+        </div>
+      </div>
+      <div class="field">
+        <span class="field-label" id="progMoveLabel">On the neck</span>
+        <div class="segmented" id="progMoveSeg" role="radiogroup" aria-labelledby="progMoveLabel">
+          <button class="seg" type="button" role="radio" data-value="stay">Stay in one area</button>
+          <button class="seg" type="button" role="radio" data-value="up">Ascend</button>
+          <button class="seg" type="button" role="radio" data-value="down">Descend</button>
+        </div>
+      </div>
+    </div>
+    <!-- Lists generated in app.js -->
+    <div id="progList"></div>
+  </div>
 </section>
 
 <!-- Chord-tone overlay picker. -->

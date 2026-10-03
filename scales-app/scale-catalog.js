@@ -224,5 +224,37 @@
     { id: "altered",    name: "Altered dominants", arpeggio: "Altered Arpeggios" }
   ];
 
-  return { SCALES, GROUPS, CHORDS, CHORD_FAMILIES };
+  /**
+   * Progressions as Roman numerals, read against the current key. Numerals
+   * count from the major scale (♭VII is 10 semitones up) so one list serves
+   * every key; their case is how they are usually written, for display.
+   */
+  const PROGRESSIONS = [
+    /* ---- major-key ---- */
+    { id: "1-4-5",      mood: "major", name: "I–IV–V",           aka: ["Blues", "Rock", "Folk"], steps: ["I", "IV", "V"] },
+    { id: "1-5-6-4",    mood: "major", name: "Pop Axis",                    aka: ["I–V–vi–IV"], steps: ["I", "V", "vi", "IV"] },
+    { id: "2-5-1",      mood: "major", name: "Jazz ii–V–I",       steps: ["ii", "V", "I"] },
+    { id: "1-6-4-5",    mood: "major", name: "’50s Doo-Wop",           aka: ["I–vi–IV–V"], steps: ["I", "vi", "IV", "V"] },
+    { id: "6-4-1-5",    mood: "major", name: "Pop, Minor Start",            aka: ["vi–IV–I–V"], steps: ["vi", "IV", "I", "V"] },
+    { id: "1-4-6-5",    mood: "major", name: "I–IV–vi–V",    steps: ["I", "IV", "vi", "V"] },
+    { id: "1-5-4",      mood: "major", name: "Rock I–V–IV",       steps: ["I", "V", "IV"] },
+    { id: "1-b7-4",     mood: "major", name: "Mixolydian Rock",             aka: ["I–♭VII–IV"], steps: ["I", "♭VII", "IV"] },
+    { id: "1-4",        mood: "major", name: "I–IV Vamp",              steps: ["I", "IV"] },
+    { id: "1-6-2-5",    mood: "major", name: "Rhythm Changes Turnaround",   aka: ["I–vi–ii–V"], steps: ["I", "vi", "ii", "V"] },
+    { id: "3-6-2-5-1",  mood: "major", name: "Jazz Turnaround",             aka: ["iii–vi–ii–V–I"], steps: ["iii", "vi", "ii", "V", "I"] },
+    { id: "canon",      mood: "major", name: "Pachelbel’s Canon",      steps: ["I", "V", "vi", "iii", "IV", "I", "IV", "V"] },
+    { id: "12-bar",     mood: "major", name: "12-Bar Blues",                steps: ["I", "I", "I", "I", "IV", "IV", "I", "I", "V", "IV", "I", "V"] },
+    { id: "12-bar-qc",  mood: "major", name: "12-Bar Blues, Quick Change",  steps: ["I", "IV", "I", "I", "IV", "IV", "I", "I", "V", "IV", "I", "V"] },
+
+    /* ---- minor-key ---- */
+    { id: "m-1-4-5",    mood: "minor", name: "Minor i–iv–v",      steps: ["i", "iv", "v"] },
+    { id: "m-epic",     mood: "minor", name: "Epic Minor",                  aka: ["i–♭VI–♭III–♭VII"], steps: ["i", "♭VI", "♭III", "♭VII"] },
+    { id: "andalusian", mood: "minor", name: "Andalusian Cadence",          aka: ["i–♭VII–♭VI–V", "Flamenco"], steps: ["i", "♭VII", "♭VI", "V"] },
+    { id: "m-2-5-1",    mood: "minor", name: "Minor ii°–V–i", steps: ["ii°", "V", "i"] },
+    { id: "m-aeolian",  mood: "minor", name: "Aeolian Rock",                aka: ["i–♭VII–♭VI–♭VII"], steps: ["i", "♭VII", "♭VI", "♭VII"] },
+    { id: "m-1-6-7",    mood: "minor", name: "i–♭VI–♭VII", steps: ["i", "♭VI", "♭VII"] },
+    { id: "m-dorian",   mood: "minor", name: "Dorian Vamp",                 aka: ["i–IV"], steps: ["i", "IV"] }
+  ];
+
+  return { SCALES, GROUPS, CHORDS, CHORD_FAMILIES, PROGRESSIONS };
 });

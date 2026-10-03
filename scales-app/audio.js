@@ -221,7 +221,7 @@ window.ScaleAudio = (function () {
 
     midis.forEach((midi, i) => {
       const when = start + i * stepSeconds;
-      playAt(midi, when);
+      if (midi !== null) playAt(midi, when);   // null is a rest
       timers.push(setTimeout(() => onStep && onStep(i, midi),
         Math.max(0, (when - c.currentTime) * 1000)));
     });

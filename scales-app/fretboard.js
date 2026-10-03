@@ -180,6 +180,69 @@
     return out;
   }
 
+  /* ---------------------------------------------------------- progressions */
+
+  /** Frets on the low E string where a pitch class sits, low to high. */
+  function rootFrets(board, pc) {
+    const out = [];
+    for (let f = 0; f <= board.fretCount; f++) if (board.pitchClassAt(0, f) === ((pc % 12) + 12) % 12) out.push(f);
+    return out;
+  }
+
+  /**
+   * One octave of a set inside a box, from the lowest root found there up to
+   * the root above it (or as far as the box reaches).
+   */
+  function octaveInBox(board, pitchClasses, rootPc, focus) {
+    const all = positionSequence(board, pitchClasses, focus, "up");
+    const root = all.find((n) => n.midi % 12 === ((rootPc % 12) + 12) % 12);
+    if (!root) return all;
+    return all.filter((n) => n.midi >= root.midi && n.midi <= root.midi + 12);
+  }
+
+  /**
+   * Where each progression step is played and which notes it plays.
+   *   steps     [{ rootPc, key }] from GembaTheory.progressionSteps
+   *   move      "stay" - every step in one box (opts.box, or the first root's)
+   *             "up"   - each step at its next root up the low E
+   *             "down" - each step at its next root down the low E
+   *             Running out of neck wraps round to the other end.
+   * Returns [{ focus, notes: [{ midi, string, fret }] }], notes already in
+   * the requested direction.
+   */
+  function progressionPlan(board, steps, opts) {
+    const span = opts.span || 5;
+    const dir = opts.direction || "up";
+    let prevFret = null;
+    let prevPc = null;
+    let stayBox = opts.box || null;
+
+    return steps.map((step, i) => {
+      let focus;
+      if (opts.move === "stay") {
+        if (!stayBox) stayBox = clampFocus(rootFrets(board, step.rootPc)[0] || 0, span, board.fretCount);
+        focus = stayBox;
+      } else {
+        const frets = rootFrets(board, step.rootPc);
+        const up = opts.move !== "down";
+        let fret;
+        if (i === 0 || prevFret === null) {
+          fret = up ? frets[0] : frets[frets.length - 1];
+        } else if (step.rootPc === prevPc) {
+          fret = prevFret;                    // same chord again: stay put
+        } else {
+          fret = up ? frets.find((f) => f > prevFret) : frets.slice().reverse().find((f) => f < prevFret);
+          if (fret === undefined) fret = up ? frets[0] : frets[frets.length - 1];
+        }
+        prevFret = fret;
+        prevPc = step.rootPc;
+        focus = clampFocus(fret, span, board.fretCount);
+      }
+      const notes = octaveInBox(board, step.key.pitchClasses, step.rootPc, focus);
+      return { focus, notes: applyDirection(notes, dir) };
+    });
+  }
+
   return {
     TUNINGS,
     FRET_RANGES,
@@ -190,6 +253,7 @@
     arpeggio,
     clampFocus,
     positionSequence,
-    shapeStarts
+    shapeStarts,
+    progressionPlan
   };
 });

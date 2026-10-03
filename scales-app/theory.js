@@ -220,7 +220,7 @@
    */
   function createKey(rootPc, scaleId, preference) {
     rootPc = mod12(rootPc);
-    const scale = getScale(scaleId);
+    const scale = scaleId && typeof scaleId === "object" ? scaleId : getScale(scaleId);
     const pref = preference || "auto";
 
     const rootSpelled = chooseRootSpelling(rootPc, scale, pref);
@@ -385,6 +385,71 @@
     }));
   }
 
+  /* ---------------------------------------------------------- progressions */
+
+  const PROGRESSIONS = Catalog.PROGRESSIONS;
+  const MODE_NAMES = { "major": "Ionian", "natural-minor": "Aeolian" };
+  const MAJOR_STEPS = [0, 2, 4, 5, 7, 9, 11];
+  const ROMAN_RE = /^([\u266D\u266Fb#]?)(VII|VI|IV|V|III|II|I)(.*)$/i;
+
+  /**
+   * "♭VII" -> { offset: 10, number: 7 }; "ii°" -> { offset: 2, number: 2 }.
+   * Numerals count from the major scale; case and suffixes are display only.
+   */
+  function parseRoman(label) {
+    const m = ROMAN_RE.exec(String(label).trim());
+    if (!m) return null;
+    const number = ROMAN.indexOf(m[2].toUpperCase()) + 1;
+    const acc = m[1] === "\u266D" || m[1] === "b" ? -1 : m[1] === "\u266F" || m[1] === "#" ? 1 : 0;
+    return { offset: mod12(MAJOR_STEPS[number - 1] + acc), number };
+  }
+
+  /** The numeral for a semitone offset, cased by the triad the key builds there. */
+  const OFFSET_NUMERALS = ["I", "\u266DII", "II", "\u266DIII", "III", "IV", "\u266FIV", "V", "\u266DVI", "VI", "\u266DVII", "VII"];
+
+  function romanForOffset(key, offset) {
+    const base = OFFSET_NUMERALS[mod12(offset)];
+    const pc = key.rootPc + offset;
+    if (!key.isScaleTone(pc)) return base;
+    const has = (iv) => key.isScaleTone(pc + iv);
+    if (has(3) && has(7)) return base.toLowerCase();
+    if (has(3) && has(6) && !has(7)) return base.toLowerCase() + "\u00B0";
+    return base;
+  }
+
+  /**
+   * What each step of a progression plays, against the key.
+   *   style "modes": the key's own notes from the step's root - IV in G major
+   *                  is C Lydian. A root outside the scale (♭VII in major)
+   *                  falls back to moving the scale there.
+   *   style "moved": the selected scale moved to each root - A minor
+   *                  pentatonic over I-IV-V gives A, D and E minor pentatonic.
+   * Returns [{ label, offset, rootPc, key, name, moved }].
+   */
+  function progressionSteps(key, steps, style) {
+    return steps.map((label) => {
+      const r = parseRoman(label);
+      const offset = r ? r.offset : 0;
+      const rootPc = mod12(key.rootPc + offset);
+      let scale = key.scale;
+      let moved = true;
+
+      if (style !== "moved" && key.isScaleTone(rootPc)) {
+        const intervals = key.pitchClasses.map((pc) => mod12(pc - rootPc)).sort((a, b) => a - b);
+        const sig = intervals.join();
+        scale = PLAIN_SCALES.find((sc) => sc.intervals.join() === sig) ||
+          SCALES.find((sc) => sc.intervals.join() === sig) ||
+          { id: "rotation", name: key.scale.name + " from " + key.byInterval[offset].degree, aka: [], intervals, degrees: null };
+        moved = false;
+      }
+
+      const stepKey = createKey(rootPc, scale, key.preference);
+      // As a mode of the key, Major and Natural Minor read as Ionian and Aeolian.
+      const modeName = !moved && MODE_NAMES[scale.id] ? MODE_NAMES[scale.id] : scale.name;
+      return { label, offset, rootPc, key: stepKey, name: stepKey.rootName + " " + modeName, moved };
+    });
+  }
+
   /** Label for the root picker: "C", "C♯ / D♭". */
   function rootPickerLabel(pc) {
     const opts = rootSpellings(pc);
@@ -410,6 +475,10 @@
     GROUPS,
     CHORDS,
     FAMILIES,
+    PROGRESSIONS,
+    parseRoman,
+    romanForOffset,
+    progressionSteps,
     mod12,
     getChord,
     createChord,

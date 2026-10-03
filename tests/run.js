@@ -400,5 +400,59 @@ group("Position focus");
     T.diatonicChords(key(PC.C, "major"))[4].chords.some((x) => x.chord.id === "9" && x.roman === "V9"));
 }
 
+/* -------------------------------------------------------- progressions -- */
+
+group("Progressions");
+{
+  check("catalogue progressions all parse", T.PROGRESSIONS.every((p) => p.steps.every((s) => T.parseRoman(s))));
+  check("ids unique", new Set(T.PROGRESSIONS.map((p) => p.id)).size === T.PROGRESSIONS.length);
+  check("bVII is 10 semitones", T.parseRoman("\u266DVII").offset === 10 && T.parseRoman("bVII").offset === 10);
+  check("ii\u00B0 parses to 2", T.parseRoman("ii\u00B0").offset === 2);
+  check("nonsense does not parse", T.parseRoman("X") === null);
+
+  const g = key(PC.G, "major");
+  const modes = T.progressionSteps(g, ["I", "IV", "V"], "modes").map((s) => s.name);
+  check("I-IV-V in G as modes: G Ionian, C Lydian, D Mixolydian",
+    same(modes, ["G Ionian", "C Lydian", "D Mixolydian"]), modes);
+  const c4 = T.progressionSteps(g, ["IV"], "modes")[0].key;
+  check("C Lydian keeps G major's notes, with F#", same(notes(c4), ["C", "D", "E", "F#", "G", "A", "B"]));
+  check("C Lydian labels F# as #4", degrees(c4)[3] === "#4");
+  const b7 = T.progressionSteps(g, ["\u266DVII"], "modes")[0];
+  check("bVII outside the key falls back to moving the scale (F Major)", b7.moved && b7.name === "F Major");
+
+  const a = key(PC.A, "minor-pentatonic");
+  const moved = T.progressionSteps(a, ["I", "IV", "V"], "moved").map((s) => s.name);
+  check("A minor pentatonic moved over I-IV-V: A, D, E minor pentatonic",
+    same(moved, ["A Minor Pentatonic", "D Minor Pentatonic", "E Minor Pentatonic"]), moved);
+  check("numeral case follows the key: G major ii, vii\u00B0, bVII",
+    T.romanForOffset(g, 2) === "ii" && T.romanForOffset(g, 11) === "vii\u00B0" && T.romanForOffset(g, 10) === "\u266DVII");
+
+  const fb = F.createFretboard({ fretCount: 15 });
+  const steps = T.progressionSteps(g, ["I", "IV", "V"], "modes");
+
+  const stay = F.progressionPlan(fb, steps, { move: "stay", span: 5, direction: "up" });
+  check("stay: every step in the same box", stay.every((p) => same(p.focus, stay[0].focus)));
+  check("stay: box starts on G at low E fret 3", stay[0].focus.start === 3);
+  check("stay: each step runs one octave, root to root",
+    stay.every((p, i) => p.notes.length === 8 && p.notes[0].midi % 12 === steps[i].rootPc &&
+      p.notes[7].midi - p.notes[0].midi === 12), stay.map((p) => p.notes.length));
+  check("stay: every note inside the box",
+    stay.every((p) => p.notes.every((n) => n.fret >= p.focus.start && n.fret <= p.focus.end)));
+
+  const up = F.progressionPlan(fb, steps, { move: "up", span: 5, direction: "up" });
+  check("ascend: boxes climb G(3) C(8) D(10)", same(up.map((p) => p.focus.start), [3, 8, 10]), up.map((p) => p.focus.start));
+  const down = F.progressionPlan(fb, steps, { move: "down", span: 5, direction: "up" });
+  check("descend: boxes fall from the top G", down[0].focus.start > down[1].focus.start || down[1].focus.start > down[2].focus.start,
+    down.map((p) => p.focus.start));
+  const bars = F.progressionPlan(fb, T.progressionSteps(g, ["I", "I", "IV"], "modes"), { move: "up", span: 5, direction: "up" });
+  check("ascend: a repeated chord stays put", bars[0].focus.start === bars[1].focus.start);
+  // On 12 frets the next G above D (fret 10) would be fret 15, off the neck.
+  const wrap = F.progressionPlan(F.createFretboard({ fretCount: 12 }),
+    T.progressionSteps(g, ["I", "IV", "V", "I"], "modes"), { move: "up", span: 5 });
+  check("ascend wraps to the bottom when the neck runs out", wrap[3].focus.start === 3, wrap.map((p) => p.focus.start));
+  const desc = F.progressionPlan(fb, steps, { move: "stay", span: 5, direction: "down" });
+  check("direction applies inside each step", desc[0].notes[0].midi > desc[0].notes[7].midi);
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

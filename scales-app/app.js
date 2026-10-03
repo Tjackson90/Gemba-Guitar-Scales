@@ -75,8 +75,37 @@
     focusStart: intOrNull(store.get("focusStart"), 0, 24),
     focusSpan: Number(pick(store.get("focusSpan"), Fret.FOCUS_SPANS.map(String), "5")),
     focusStep: pick(store.get("focusStep"), ["shape", "fret"], "shape"),
-    loop: store.get("loop", "0") === "1"
+    loop: store.get("loop", "0") === "1",
+
+    // Progression mode. Built-ins by id; customs as "custom:<id>".
+    progressionId: store.get("progression", "") || null,
+    progStyle: pick(store.get("progStyle"), ["modes", "moved"], "modes"),
+    progMove: pick(store.get("progMove"), ["stay", "up", "down"], "stay"),
+    progTab: pick(store.get("progTab"), ["popular", "custom"], "popular"),
+    customProgs: loadCustomProgs()
   };
+
+  function loadCustomProgs() {
+    try {
+      const list = JSON.parse(store.get("customProgs", "[]"));
+      return Array.isArray(list)
+        ? list.filter((p) => p && p.id && Array.isArray(p.steps) && p.steps.length &&
+            p.steps.every((x) => Theory.parseRoman(x)))
+        : [];
+    } catch (e) { return []; }
+  }
+
+  function getProgression(id) {
+    if (!id) return null;
+    if (id.indexOf("custom:") === 0) {
+      return state.customProgs.find((p) => "custom:" + p.id === id) || null;
+    }
+    return Theory.PROGRESSIONS.find((p) => p.id === id) || null;
+  }
+
+  function numerals(steps) {
+    return steps.join("\u2013");
+  }
   if (state.chordId === null || state.chordOffset === null) {
     state.chordId = null;
     state.chordOffset = null;
@@ -153,7 +182,17 @@
     $("scaleName").textContent = key.scale.name;
     $("scaleBtn").setAttribute("aria-label", "Scale " + key.scale.name + ". Change scale");
 
-    syncSeg($("modeSeg"), "mode", state.displayMode);
+    const modeBtn = $("modeBtn");
+    modeBtn.classList.toggle("is-notes", state.displayMode === "notes");
+    modeBtn.setAttribute("aria-label", state.displayMode === "notes"
+      ? "Showing note names. Tap for intervals" : "Showing intervals. Tap for note names");
+
+    const prog = getProgression(state.progressionId);
+    const progBtn = $("progBtn");
+    progBtn.classList.toggle("is-active", !!prog);
+    $("progLabel").textContent = prog ? (prog.steps.length <= 4 ? numerals(prog.steps) : prog.name) : "Prog";
+    progBtn.setAttribute("aria-label", prog
+      ? "Progression " + prog.name + ". Change or turn off" : "Progression mode");
     syncSeg($("dirSeg2"), "dir", state.direction);
     syncSeg($("spanSeg"), "value", String(state.focusSpan));
     syncSeg($("stepSeg"), "value", state.focusStep);
@@ -189,7 +228,8 @@
     const playing = state.playbackState === "playing";
     $("playBtn").classList.toggle("is-playing", playing);
     $("playBtn").setAttribute("aria-pressed", String(playing));
-    const what = (chord ? "chord" : "scale") + (state.focusOn ? " in the box" : "");
+    const what = getProgression(state.progressionId) ? "progression"
+      : (chord ? "chord" : "scale") + (state.focusOn ? " in the box" : "");
     $("playBtn").setAttribute("aria-label", playing ? "Stop playback" : "Play " + what);
 
     const f = currentFocus();
@@ -213,8 +253,17 @@
     legend.appendChild(title);
     legend.classList.toggle("is-chord", !!chord);
 
+    const prog = getProgression(state.progressionId);
+    if (prog) {
+      const tag = document.createElement("span");
+      tag.className = "legend-shape";
+      tag.textContent = numerals(prog.steps) + " \u00B7 " +
+        Theory.progressionSteps(key, prog.steps, state.progStyle).map((st) => st.key.rootName).join(" ");
+      legend.appendChild(tag);
+    }
+
     const shape = shapeInfo();
-    if (shape) {
+    if (shape && !prog) {
       const tag = document.createElement("span");
       tag.className = "legend-shape";
       tag.textContent = shape;
@@ -453,6 +502,155 @@
     });
   }
 
+  /* ----------------------------------------------------- progression page */
+
+  let draftSteps = [];
+  let draftName = "";
+
+  function progRow(prog, id, onDelete) {
+    const active = state.progressionId === id;
+    const row = document.createElement("div");
+    row.className = "scale-row" + (active ? " is-active" : "");
+
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "scale-pick";
+    b.dataset.prog = id;
+    b.setAttribute("role", "radio");
+    b.setAttribute("aria-checked", String(active));
+    const steps = Theory.progressionSteps(key, prog.steps, state.progStyle);
+    const inKey = steps.map((st) => st.key.rootName).join(" \u00B7 ");
+    b.innerHTML = `<span class="scale-pick-text"><span class="scale-pick-name"></span>` +
+      `<span class="scale-pick-aka"></span></span><span class="scale-pick-formula"></span>`;
+    b.querySelector(".scale-pick-name").textContent = prog.name;
+    b.querySelector(".scale-pick-aka").textContent = inKey;
+    b.querySelector(".scale-pick-formula").textContent = numerals(prog.steps);
+    row.appendChild(b);
+
+    if (onDelete) {
+      const del = document.createElement("button");
+      del.type = "button";
+      del.className = "row-delete";
+      del.dataset.deleteProg = prog.id;
+      del.setAttribute("aria-label", "Delete " + prog.name);
+      del.textContent = "\u00D7";
+      row.appendChild(del);
+    }
+    return row;
+  }
+
+  function renderProgPage() {
+    $("progPageSub").textContent = `in ${key.rootName} ${key.scale.name}`;
+    $("progClear").hidden = !getProgression(state.progressionId);
+    $("progTabs").querySelectorAll(".seg").forEach((b) => {
+      const on = b.dataset.tab === state.progTab;
+      b.classList.toggle("is-active", on);
+      b.setAttribute("aria-selected", String(on));
+    });
+    syncSeg($("progStyleSeg"), "value", state.progStyle);
+    syncSeg($("progMoveSeg"), "value", state.progMove);
+
+    const list = $("progList");
+    list.innerHTML = "";
+
+    if (state.progTab === "popular") {
+      [["major", "Major keys"], ["minor", "Minor keys"]].forEach(([mood, title]) => {
+        const rows = Theory.PROGRESSIONS.filter((p) => p.mood === mood).map((p) => progRow(p, p.id));
+        list.appendChild(section(title, rows));
+      });
+      return;
+    }
+
+    // Custom: build with the numeral pad, name it, save it.
+    const builder = document.createElement("div");
+    builder.className = "prog-builder";
+
+    const draft = document.createElement("div");
+    draft.className = "prog-draft";
+    draft.setAttribute("aria-label", "Your progression");
+    if (!draftSteps.length) {
+      const empty = document.createElement("span");
+      empty.className = "prog-draft-empty";
+      empty.textContent = "Tap numerals below to build a progression. Tap a step to remove it.";
+      draft.appendChild(empty);
+    }
+    draftSteps.forEach((label, i) => {
+      const st = Theory.progressionSteps(key, [label], state.progStyle)[0];
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "draft-step";
+      b.dataset.removeStep = i;
+      b.setAttribute("aria-label", "Remove " + label);
+      b.innerHTML = `<span class="draft-step-num"></span><span class="draft-step-note"></span>`;
+      b.firstChild.textContent = label;
+      b.lastChild.textContent = st.key.rootName;
+      draft.appendChild(b);
+    });
+    builder.appendChild(draft);
+
+    const pad = document.createElement("div");
+    pad.className = "numeral-pad";
+    for (let o = 0; o < 12; o++) {
+      const label = Theory.romanForOffset(key, o);
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "numeral" + (key.isScaleTone(key.rootPc + o) ? " in-scale" : "");
+      b.dataset.addStep = label;
+      b.setAttribute("aria-label", "Add " + label);
+      b.innerHTML = `<span class="numeral-num"></span><span class="numeral-note"></span>`;
+      b.firstChild.textContent = label;
+      // Scale tones keep the key's spelling; a ♭ or ♯ numeral spells to match.
+      const info = key.byInterval[o];
+      b.lastChild.textContent = info.inScale ? info.note
+        : Theory.simpleName(key.rootPc + o, label.charAt(0) === Theory.FLAT);
+      pad.appendChild(b);
+    }
+    builder.appendChild(pad);
+
+    const save = document.createElement("div");
+    save.className = "prog-save";
+    save.innerHTML = `<label class="search"><input id="progName" type="text" maxlength="40" ` +
+      `placeholder="Name (optional)" autocomplete="off" spellcheck="false" aria-label="Progression name" /></label>` +
+      `<button class="pill-btn" type="button" id="progDraftClear">Clear</button>` +
+      `<button class="pill-btn" type="button" id="progSave">Save &amp; use</button>`;
+    builder.appendChild(save);
+    list.appendChild(builder);
+
+    const nameInput = save.querySelector("#progName");
+    nameInput.value = draftName;
+    nameInput.addEventListener("input", () => { draftName = nameInput.value; });
+    save.querySelector("#progSave").disabled = draftSteps.length < 2;
+    save.querySelector("#progDraftClear").disabled = !draftSteps.length;
+
+    if (state.customProgs.length) {
+      list.appendChild(section("Saved", state.customProgs.map((p) => progRow(p, "custom:" + p.id, true))));
+    } else {
+      list.appendChild(emptyNote("Saved progressions appear here."));
+    }
+  }
+
+  function saveDraft() {
+    if (draftSteps.length < 2) return;
+    const id = Date.now().toString(36);
+    const name = draftName.trim() || numerals(draftSteps);
+    const customProgs = state.customProgs.concat({ id, name, steps: draftSteps.slice() });
+    store.set("customProgs", JSON.stringify(customProgs));
+    draftSteps = [];
+    draftName = "";
+    set({ customProgs, progressionId: "custom:" + id });
+    closeSheet();
+  }
+
+  function deleteCustom(id) {
+    const customProgs = state.customProgs.filter((p) => p.id !== id);
+    store.set("customProgs", JSON.stringify(customProgs));
+    set({
+      customProgs,
+      progressionId: state.progressionId === "custom:" + id ? null : state.progressionId
+    });
+    renderProgPage();
+  }
+
   function syncTabs() {
     $("scaleTabs").querySelectorAll(".seg").forEach((b) => {
       const on = b.dataset.tab === state.scaleTab;
@@ -496,7 +694,11 @@
     const focusChanged = state.focusOn !== before.focusOn || state.focusStart !== before.focusStart ||
       state.focusSpan !== before.focusSpan || state.fretRange !== before.fretRange;
 
-    if ((chordChanged || focusChanged) && state.playbackState === "playing") stopPlayback();
+    const progChanged = state.progressionId !== before.progressionId ||
+      state.progStyle !== before.progStyle || state.progMove !== before.progMove ||
+      state.customProgs !== before.customProgs;
+
+    if ((chordChanged || focusChanged || progChanged) && state.playbackState === "playing") stopPlayback();
     if (keyChanged) rebuildKey();
     if (chordChanged) rebuildChord();
 
@@ -506,7 +708,7 @@
     else if (chordChanged || focusChanged || state.displayMode !== before.displayMode ||
              state.showChromatic !== before.showChromatic) renderBoard();
 
-    if (chordChanged || focusChanged) renderLegend();
+    if (chordChanged || focusChanged || progChanged) renderLegend();
     if (keyChanged) renderPickers();
     renderToolbar();
     if (focusChanged && state.focusOn) revealFocus();
@@ -532,6 +734,10 @@
     store.set("focusSpan", state.focusSpan);
     store.set("focusStep", state.focusStep);
     store.set("loop", state.loop ? "1" : "0");
+    store.set("progression", state.progressionId || "");
+    store.set("progStyle", state.progStyle);
+    store.set("progMove", state.progMove);
+    store.set("progTab", state.progTab);
 
     Audio.setVoice(state.voice);
     Audio.setRing(state.ring);
@@ -593,6 +799,11 @@
     sheet.setAttribute("aria-hidden", "false");
     document.querySelector(".screen").inert = true;
     if (trigger) trigger.setAttribute("aria-expanded", "true");
+
+    if (id === "progPage") {
+      renderProgPage();
+      $("progBody").scrollTop = 0;
+    }
 
     if (id === "chordPage") {
       chordPickRoot = state.chordOffset === null ? 0 : state.chordOffset;
@@ -817,7 +1028,7 @@
   }
 
   function startPlayback() {
-    if (!playbackItems().length) return;
+    if (!getProgression(state.progressionId) && !playbackItems().length) return;
     clearTimeout(flashTimer);
     set({ playbackState: "playing" });
     playPass(false);
@@ -828,27 +1039,101 @@
    * ends; turning Loop off lets the current pass finish, then stops.
    */
   function playPass(continuing) {
-    const items = playbackItems();
+    const prog = getProgression(state.progressionId);
+    const items = prog ? progressionItems(prog) : playbackItems();
     // Up+down would sound its bottom note twice at the seam; drop the repeat.
-    if (state.loop && state.direction === "updown" && items.length > 2) items.pop();
+    if (!prog && state.loop && state.direction === "updown" && items.length > 2) items.pop();
 
     Audio.playSequence(items.map((x) => x.midi), SPEEDS[state.speed],
-      (i) => highlight(items[i].midi, items[i].only),
+      (i) => {
+        const it = items[i];
+        if (it.step !== undefined && it.step !== shownStep) showStep(it);
+        if (it.midi === null) highlight(null);
+        else highlight(it.midi, it.only);
+      },
       () => {
         if (state.playbackState !== "playing") return;
         if (state.loop) {
           playPass(true);
         } else {
-          highlight(null);
+          finishPlayback();
           set({ playbackState: "idle" });
         }
       },
       continuing);
   }
 
+  /*
+   * Progression playback: each step plays one octave of its scale or mode,
+   * placed on the neck by the "On the neck" choice, with a beat's rest
+   * between steps. While a step sounds, the board shows that step's mode.
+   */
+  let progSteps = null;
+  let progPlan = null;
+  let shownStep = -1;
+
+  function progressionItems(prog) {
+    progSteps = Theory.progressionSteps(key, prog.steps, state.progStyle);
+    progPlan = Fret.progressionPlan(board, progSteps, {
+      move: state.progMove,
+      span: state.focusSpan,
+      box: state.progMove === "stay" ? currentFocus() : null,
+      direction: state.direction
+    });
+    const items = [];
+    progPlan.forEach((p, step) => {
+      p.notes.forEach((n) => items.push({ midi: n.midi, only: { string: n.string, fret: n.fret }, step }));
+      items.push({ midi: null, only: null, step });          // a beat's rest
+    });
+    return items;
+  }
+
+  function showStep(item) {
+    shownStep = item.step;
+    const st = progSteps[item.step];
+    view.render(st.key, state.displayMode, state.showChromatic, { chord: null, focus: progPlan[item.step].focus });
+    renderStepLegend(st, item.step);
+    view.setSounding(null);
+  }
+
+  function renderStepLegend(st, index) {
+    const legend = $("legend");
+    legend.innerHTML = "";
+    legend.classList.remove("is-chord");
+    const where = document.createElement("span");
+    where.className = "legend-step";
+    where.textContent = `${index + 1}/${progSteps.length} \u00B7 ${st.label}`;
+    legend.appendChild(where);
+    const title = document.createElement("span");
+    title.className = "legend-title";
+    title.textContent = st.name;
+    legend.appendChild(title);
+    st.key.tones.forEach((t) => {
+      const chip = document.createElement("span");
+      chip.className = "chip" + (t.interval === 0 ? " is-root" : "");
+      chip.dataset.pc = t.pc;
+      chip.innerHTML = `<span class="chip-note"></span><span class="chip-deg"></span>`;
+      chip.firstChild.textContent = t.note;
+      chip.lastChild.textContent = t.degree;
+      legend.appendChild(chip);
+    });
+  }
+
+  /** Back to the key's own view after a progression has played. */
+  function finishPlayback() {
+    highlight(null);
+    if (shownStep !== -1) {
+      shownStep = -1;
+      progSteps = null;
+      progPlan = null;
+      renderBoard();
+      renderLegend();
+    }
+  }
+
   function stopPlayback() {
     Audio.stop();
-    highlight(null);
+    finishPlayback();
     state.playbackState = "idle";
     renderToolbar();
   }
@@ -891,6 +1176,37 @@
   });
   $("menuBtn").addEventListener("click", (e) => openSheet("menuSheet", e.currentTarget));
   $("chordBtn").addEventListener("click", (e) => openSheet("chordPage", e.currentTarget));
+  $("progBtn").addEventListener("click", (e) => openSheet("progPage", e.currentTarget));
+
+  $("progTabs").addEventListener("click", (e) => {
+    const b = e.target.closest("[data-tab]");
+    if (!b) return;
+    set({ progTab: b.dataset.tab });
+    renderProgPage();
+  });
+  bindSeg($("progStyleSeg"), "value", (v) => { set({ progStyle: v }); renderProgPage(); });
+  bindSeg($("progMoveSeg"), "value", (v) => { set({ progMove: v }); renderProgPage(); });
+
+  $("progClear").addEventListener("click", () => {
+    set({ progressionId: null });
+    closeSheet();
+  });
+
+  $("progList").addEventListener("click", (e) => {
+    const del = e.target.closest("[data-delete-prog]");
+    if (del) { deleteCustom(del.dataset.deleteProg); return; }
+    const add = e.target.closest("[data-add-step]");
+    if (add) { draftSteps.push(add.dataset.addStep); renderProgPage(); return; }
+    const rm = e.target.closest("[data-remove-step]");
+    if (rm) { draftSteps.splice(Number(rm.dataset.removeStep), 1); renderProgPage(); return; }
+    if (e.target.closest("#progSave")) { saveDraft(); return; }
+    if (e.target.closest("#progDraftClear")) { draftSteps = []; renderProgPage(); return; }
+    const row = e.target.closest("[data-prog]");
+    if (row) {
+      set({ progressionId: row.dataset.prog });
+      closeSheet();
+    }
+  });
 
   $("focusBtn").addEventListener("click", () => {
     if (state.focusOn) { set({ focusOn: false }); return; }
@@ -960,7 +1276,8 @@
     if (e.key === "ArrowRight") { nudge(1); e.preventDefault(); }
   });
 
-  bindSeg($("modeSeg"), "mode", (v) => set({ displayMode: v }));
+  $("modeBtn").addEventListener("click", () =>
+    set({ displayMode: state.displayMode === "notes" ? "intervals" : "notes" }));
   bindSeg($("spanSeg"), "value", (v) => set({ focusSpan: Number(v) }));
   bindSeg($("stepSeg"), "value", (v) => set({ focusStep: v }));
   bindSeg($("dirSeg2"), "dir", (v) => set({ direction: v }));
