@@ -37,12 +37,12 @@ window.GembaBoardView = (function () {
       const availW = scroller.clientWidth;
       const availH = scroller.clientHeight;
       const numberRow = 26;
-      const padY = 10;
+      const padY = 8;
       const padX = 8;
 
       // Rows follow the height, but a tall narrow screen (portrait) must not
       // grow notes so big that only a few frets fit across.
-      const rowH = Math.max(34, Math.min(84, availW / 7.5, (availH - numberRow - padY * 2) / 6));
+      const rowH = Math.max(28, Math.min(84, availW / 7.5, (availH - numberRow - padY * 2) / 6));
       const openW = Math.max(46, Math.min(78, rowH * 1.15));
 
       const weights = fretWeights(board.fretCount);

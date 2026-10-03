@@ -6,7 +6,9 @@
   "scripts": {
     "test": "node tests/run.js",
     "sync": "npx cap sync android",
-    "open:android": "npx cap open android"
+    "open:android": "npx cap open android",
+    "build:android": "node scripts/build-android.js",
+    "install:android": "node scripts/build-android.js && adb install -r android/app/build/outputs/apk/debug/app-debug.apk"
   },
   "license": "ISC",
   "type": "commonjs",

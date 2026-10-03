@@ -148,8 +148,21 @@ button {
 }
 
 .tb-key {
-  flex: 1 1 auto;
+  flex: 1 1 0;          /* shrinks first: the scale name ellipsizes */
   min-width: 0;
+}
+
+/* Wide enough for one row: never wrap, so the neck keeps its height. */
+@media (min-width: 761px) {
+  .toolbar { flex-wrap: nowrap; }
+}
+
+@media (min-width: 761px) and (max-width: 940px) {
+  .toolbar { column-gap: 10px; }
+  .toolbar .root-btn { min-width: 0; padding: 0 16px; }
+  .root-btn-label { display: none; }
+  .toolbar .scale-btn { font-size: 17px; padding: 0 6px; }
+  .toolbar .tb-view .seg { padding: 4px 10px; }
 }
 
 .icon-btn {
@@ -540,7 +553,7 @@ button {
   width: 100%;
   max-width: 600px;
   margin: 0 auto;
-  max-height: 90dvh;
+  max-height: calc(100dvh - var(--safe-t) - 12px);
   display: flex;
   flex-direction: column;
   background: var(--bg);
@@ -764,7 +777,7 @@ button {
   .tb-view .segmented { flex: 1 1 auto; max-width: 260px; }
   .dir-seg { display: none; }       /* still set from Settings > Playback direction */
   .scale-btn { font-size: 16px; padding: 0 6px; }
-  .root-btn { min-width: 0; }
+  .toolbar .root-btn { min-width: 0; padding: 0 16px; }
   .root-btn-label { display: none; }
   .root-grid { grid-template-columns: repeat(4, 1fr); }
   .scale-opt-formula { display: none; }
@@ -780,7 +793,7 @@ button {
   .seg { min-height: 40px; }
   .legend { padding-top: 4px; padding-bottom: calc(4px + var(--safe-b)); }
   .chip { padding: 2px 8px; flex-direction: row; gap: 6px; align-items: baseline; }
-  .sheet { max-height: 96dvh; }
+  .sheet { max-height: calc(100dvh - var(--safe-t) - 8px); }
   .sheet-head { padding-top: 8px; padding-bottom: 4px; }
   .root-opt { min-height: 54px; }
 }
