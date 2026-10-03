@@ -30,7 +30,7 @@ window.ScaleAudio = (function () {
 
   const buffers = new Map();       // "voice:midi" -> rendered string pluck
   const activeSources = new Set();
-  let timers = [];
+  const timers = new Set();
 
   function getCtx() {
     if (!ctx) {
@@ -184,9 +184,15 @@ window.ScaleAudio = (function () {
     src.onended = () => activeSources.delete(src);
   }
 
+  /** setTimeout that stop() can cancel, and that forgets itself once run. */
+  function later(fn, ms) {
+    const id = setTimeout(() => { timers.delete(id); fn(); }, ms);
+    timers.add(id);
+  }
+
   function stop() {
     timers.forEach(clearTimeout);
-    timers = [];
+    timers.clear();
     if (!ctx) return;
 
     const now = ctx.currentTime;
@@ -203,32 +209,37 @@ window.ScaleAudio = (function () {
   }
 
   /**
-   * Plays a list of MIDI notes on the audio clock. onStep(index, midi) fires
-   * as each note sounds (for highlighting), onDone after the last.
-   * continueRing: the next pass of a loop - pending timers are replaced but
-   * the previous pass's last note is left to ring into it.
+   * Plays a list of MIDI notes (null = rest) on the audio clock.
+   *   onStep(index, midi)  as each note is heard - for highlighting
+   *   onDone()             after the last note's highlight
+   *   opts.startAt         audio-clock time to begin: a loop's next pass,
+   *                        chained exactly onto the previous one. Without
+   *                        it, anything already playing is stopped first.
+   *   opts.onNearEnd(end)  shortly before the pass ends, with its end time,
+   *                        so the caller can chain the next pass seamlessly
    */
-  async function playSequence(midis, stepSeconds, onStep, onDone, continueRing) {
-    if (continueRing) {
-      timers.forEach(clearTimeout);
-      timers = [];
-    } else {
-      stop();
-    }
+  async function playSequence(midis, stepSeconds, onStep, onDone, opts) {
+    const o = opts || {};
+    if (o.startAt === undefined) stop();
     await unlock();
     const c = getCtx();
-    const start = c.currentTime + 0.08;
+    const start = o.startAt !== undefined ? Math.max(o.startAt, c.currentTime + 0.02) : c.currentTime + 0.08;
+    // Sound leaves the speaker this long after it is scheduled (large on
+    // Android); highlights wait the same so the eye and ear agree.
+    const lag = (c.outputLatency || 0) + (c.baseLatency || 0);
+    const delayTo = (t) => Math.max(0, (t - c.currentTime + lag) * 1000);
 
     midis.forEach((midi, i) => {
       const when = start + i * stepSeconds;
       if (midi !== null) playAt(midi, when);   // null is a rest
-      timers.push(setTimeout(() => onStep && onStep(i, midi),
-        Math.max(0, (when - c.currentTime) * 1000)));
+      later(() => onStep && onStep(i, midi), delayTo(when));
     });
 
     const end = start + midis.length * stepSeconds;
-    timers.push(setTimeout(() => { timers = []; onDone && onDone(); },
-      Math.max(0, (end - c.currentTime) * 1000)));
+    // Chaining happens on the audio clock, a little ahead of the end, so the
+    // next pass is queued before this one runs out.
+    if (o.onNearEnd) later(() => o.onNearEnd(end), Math.max(0, (end - c.currentTime - 0.15) * 1000));
+    later(() => onDone && onDone(), delayTo(end));
   }
 
   return { VOICES, RINGS, unlock, setVoice, setRing, playNote, playSequence, stop };

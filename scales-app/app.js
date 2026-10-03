@@ -1042,15 +1042,16 @@
     if (!getProgression(state.progressionId) && !playbackItems().length) return;
     clearTimeout(flashTimer);
     set({ playbackState: "playing" });
-    playPass(false);
+    playPass(undefined);
   }
 
   /**
    * One run through the notes. With Loop on, each pass queues the next as it
    * ends; turning Loop off lets the current pass finish, then stops.
    */
-  function playPass(continuing) {
+  function playPass(startAt) {
     const prog = getProgression(state.progressionId);
+    let chained = false;
     const items = prog ? progressionItems(prog) : playbackItems();
     // Up+down would sound its bottom note twice at the seam; drop the repeat.
     if (!prog && state.loop && state.direction === "updown" && items.length > 2) items.pop();
@@ -1059,19 +1060,23 @@
       (i) => {
         const it = items[i];
         if (it.step !== undefined && it.step !== shownStep) showStep(it);
-        if (it.midi === null) highlight(null);
-        else highlight(it.midi, it.only);
+        // A rest keeps the step's last note lit until the next step begins.
+        if (it.midi !== null) highlight(it.midi, it.only);
       },
       () => {
-        if (state.playbackState !== "playing") return;
-        if (state.loop) {
-          playPass(true);
-        } else {
-          finishPlayback();
-          set({ playbackState: "idle" });
-        }
+        // The next loop pass (if any) is already running; it finishes later.
+        if (chained || state.playbackState !== "playing") return;
+        finishPlayback();
+        set({ playbackState: "idle" });
       },
-      continuing);
+      {
+        startAt,
+        onNearEnd: (end) => {
+          if (state.playbackState !== "playing" || !state.loop) return;
+          chained = true;
+          playPass(end);
+        }
+      });
   }
 
   /*
