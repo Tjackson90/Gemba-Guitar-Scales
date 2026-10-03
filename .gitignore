@@ -1,5 +1,6 @@
 # dependencies
 node_modules/
+.npm-cache/
 
 # Android build output
 android/build/

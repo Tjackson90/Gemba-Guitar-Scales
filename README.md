@@ -84,6 +84,13 @@ All of it lives in one object in `app.js`, changes through `set()`, and is saved
 
 ## Design
 
+The launch screen and app icon share Gemba Metronome's navy and gold palette,
+with an A minor pentatonic box at frets 5–8 and white root notes. Edit
+`scales-app/brand-mark.svg`, then run `npm run assets` to regenerate the browser,
+store, Android adaptive/themed launcher, and native splash images. Run
+`npm run build:android` to include the updated artwork in an APK.
+
+
 The app uses the Gemba Tuner / Metronome design language: the same warm neutrals in
 dark and light, 1px hairlines, 16px radii, small spaced capitals for labels, serif for
 the big readout (the root letter), monospace for numbers, and the system sans for the

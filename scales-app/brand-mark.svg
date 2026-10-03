@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="gold" gradientUnits="userSpaceOnUse" x1="318" y1="264" x2="706" y2="760">
+      <stop stop-color="#fff0b1"/>
+      <stop offset=".5" stop-color="#ffda78"/>
+      <stop offset="1" stop-color="#edb94f"/>
+    </linearGradient>
+  </defs>
+  <!-- A minor pentatonic, box 1: strings low E to high E, left to right;
+       frets 5–8, top to bottom. White roots: E/5, G/7, high E/5. -->
+  <g fill="none" stroke="url(#gold)" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="290" y="274" width="444" height="476" rx="30" stroke-width="20"/>
+    <path d="M332 292V732M404 292V732M476 292V732M548 292V732M620 292V732M692 292V732" stroke-width="6" opacity=".55"/>
+    <path d="M304 404H720M304 512H720M304 620H720" stroke-width="8" opacity=".55"/>
+  </g>
+  <g fill="url(#gold)" stroke="#04254b" stroke-width="7">
+    <circle cx="404" cy="350" r="26"/>
+    <circle cx="476" cy="350" r="26"/>
+    <circle cx="548" cy="350" r="26"/>
+    <circle cx="620" cy="350" r="26"/>
+    <circle cx="404" cy="566" r="26"/>
+    <circle cx="476" cy="566" r="26"/>
+    <circle cx="332" cy="674" r="26"/>
+    <circle cx="620" cy="674" r="26"/>
+    <circle cx="692" cy="674" r="26"/>
+    <g fill="#ffffff">
+      <circle cx="332" cy="350" r="28"/>
+      <circle cx="548" cy="566" r="28"/>
+      <circle cx="692" cy="350" r="28"/>
+    </g>
+  </g>
+</svg>

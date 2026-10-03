@@ -982,3 +982,25 @@ button {
 @media (max-height: 340px) {
   .legend { display: none; }
 }
+/* Shared navy-and-gold launch identity with Gemba Metronome. */
+.launch-splash {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: #04254b;
+  color: #ffdf8d;
+  pointer-events: none;
+  animation: launch-dismiss .35s ease .85s forwards;
+}
+.launch-splash img { width: min(240px, 40vh); height: min(240px, 40vh); }
+.launch-brand { font: 500 14px/1.5 system-ui, sans-serif; letter-spacing: .4em; padding-left: .4em; }
+.launch-title { font: 400 48px/1.25 Georgia, serif; margin-top: 6px; }
+.launch-caption { font: 400 9px/1.5 system-ui, sans-serif; letter-spacing: .25em; margin-top: 24px; color: #b1bbc8; }
+@keyframes launch-dismiss { to { opacity: 0; visibility: hidden; } }
+@media (prefers-reduced-motion: reduce) {
+  .launch-splash { animation-duration: 0s; animation-delay: .3s; }
+}
