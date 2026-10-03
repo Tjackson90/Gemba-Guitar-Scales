@@ -74,7 +74,8 @@
     focusOn: store.get("focus", "0") === "1",
     focusStart: intOrNull(store.get("focusStart"), 0, 24),
     focusSpan: Number(pick(store.get("focusSpan"), Fret.FOCUS_SPANS.map(String), "5")),
-    focusStep: pick(store.get("focusStep"), ["shape", "fret"], "shape")
+    focusStep: pick(store.get("focusStep"), ["shape", "fret"], "shape"),
+    loop: store.get("loop", "0") === "1"
   };
   if (state.chordId === null || state.chordOffset === null) {
     state.chordId = null;
@@ -167,6 +168,11 @@
     chordBtn.setAttribute("aria-label", chord
       ? "Chord overlay " + chord.symbol + ". Change or clear"
       : "Chord overlay: highlight a chord inside the scale");
+
+    const loopBtn = $("loopBtn");
+    loopBtn.classList.toggle("is-active", state.loop);
+    loopBtn.setAttribute("aria-pressed", String(state.loop));
+    loopBtn.setAttribute("aria-label", state.loop ? "Loop is on. Tap to play once" : "Loop playback");
 
     const focusBtn = $("focusBtn");
     focusBtn.classList.toggle("is-active", state.focusOn);
@@ -525,6 +531,7 @@
     store.set("focusStart", state.focusStart === null ? "" : state.focusStart);
     store.set("focusSpan", state.focusSpan);
     store.set("focusStep", state.focusStep);
+    store.set("loop", state.loop ? "1" : "0");
 
     Audio.setVoice(state.voice);
     Audio.setRing(state.ring);
@@ -810,16 +817,33 @@
   }
 
   function startPlayback() {
-    const items = playbackItems();
-    if (!items.length) return;
+    if (!playbackItems().length) return;
     clearTimeout(flashTimer);
     set({ playbackState: "playing" });
+    playPass(false);
+  }
+
+  /**
+   * One run through the notes. With Loop on, each pass queues the next as it
+   * ends; turning Loop off lets the current pass finish, then stops.
+   */
+  function playPass(continuing) {
+    const items = playbackItems();
+    // Up+down would sound its bottom note twice at the seam; drop the repeat.
+    if (state.loop && state.direction === "updown" && items.length > 2) items.pop();
+
     Audio.playSequence(items.map((x) => x.midi), SPEEDS[state.speed],
       (i) => highlight(items[i].midi, items[i].only),
       () => {
-        highlight(null);
-        set({ playbackState: "idle" });
-      });
+        if (state.playbackState !== "playing") return;
+        if (state.loop) {
+          playPass(true);
+        } else {
+          highlight(null);
+          set({ playbackState: "idle" });
+        }
+      },
+      continuing);
   }
 
   function stopPlayback() {
@@ -885,6 +909,8 @@
   function currentFocusStart() {
     return state.focusStart === null ? Theory.mod12(key.rootPc - 4) : state.focusStart;
   }
+
+  $("loopBtn").addEventListener("click", () => set({ loop: !state.loop }));
 
   $("dirBtn").addEventListener("click", () => {
     set({ direction: DIRECTIONS[(DIRECTIONS.indexOf(state.direction) + 1) % DIRECTIONS.length] });

@@ -205,9 +205,16 @@ window.ScaleAudio = (function () {
   /**
    * Plays a list of MIDI notes on the audio clock. onStep(index, midi) fires
    * as each note sounds (for highlighting), onDone after the last.
+   * continueRing: the next pass of a loop - pending timers are replaced but
+   * the previous pass's last note is left to ring into it.
    */
-  async function playSequence(midis, stepSeconds, onStep, onDone) {
-    stop();
+  async function playSequence(midis, stepSeconds, onStep, onDone, continueRing) {
+    if (continueRing) {
+      timers.forEach(clearTimeout);
+      timers = [];
+    } else {
+      stop();
+    }
     await unlock();
     const c = getCtx();
     const start = c.currentTime + 0.08;
