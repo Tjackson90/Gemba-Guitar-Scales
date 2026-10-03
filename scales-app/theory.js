@@ -42,11 +42,30 @@
     return label.replace(/b/g, FLAT).replace(/#/g, SHARP);
   }
 
-  /* The catalogue lives in scale-catalog.js; adding a scale is one entry there. */
-  const SCALES = Catalog.SCALES.map((s) => Object.assign({}, s, {
-    aka: s.aka || [],
-    degrees: s.degrees ? s.degrees.split(" ").map(glyphs) : null
+  function normalise(entry) {
+    return Object.assign({}, entry, {
+      aka: entry.aka || [],
+      degrees: entry.degrees ? entry.degrees.split(" ").map(glyphs) : null
+    });
+  }
+
+  /* Chords: the overlay's catalogue. */
+  const CHORDS = Catalog.CHORDS.map(normalise);
+  const CHORD_BY_ID = Object.create(null);
+  CHORDS.forEach((c) => { CHORD_BY_ID[c.id] = c; });
+
+  /* The catalogue lives in scale-catalog.js; adding a scale is one entry there.
+     Triads join the scale list too, so each can be viewed across the neck. */
+  const TRIAD_SCALES = CHORDS.filter((c) => c.family === "triad").map((c) => ({
+    id: "triad-" + c.id,
+    name: c.name + " Triad",
+    aka: c.aka,
+    intervals: c.intervals,
+    degrees: c.degrees,
+    isChord: true
   }));
+
+  const SCALES = Catalog.SCALES.map(normalise).concat(TRIAD_SCALES);
 
   const SCALE_BY_ID = Object.create(null);
   SCALES.forEach((s) => { SCALE_BY_ID[s.id] = s; });
@@ -77,6 +96,13 @@
       return { scale, label: Array.isArray(item) ? item[1] : scale.name };
     })
   }));
+
+  // Triads sit right after Essentials.
+  GROUPS.splice(1, 0, {
+    id: "triads",
+    name: "Triads",
+    items: TRIAD_SCALES.map((t) => ({ scale: t, label: t.name }))
+  });
 
   /** "♭3" -> 3, "♯4" -> 4, "5" -> 5 */
   function degreeNumber(label) {
@@ -236,6 +262,104 @@
     };
   }
 
+  /* --------------------------------------------------------------- chords */
+
+  function getChord(id) {
+    return CHORD_BY_ID[id] || null;
+  }
+
+  /** "F♯" -> { letter: "F", alter: 1, pc: 6 } */
+  function parseSpelled(name) {
+    const letter = name.charAt(0);
+    let alter = 0;
+    for (const ch of name.slice(1)) {
+      if (ch === SHARP) alter++;
+      else if (ch === FLAT) alter--;
+    }
+    return { letter, alter, pc: mod12(LETTER_PC[LETTERS.indexOf(letter)] + alter) };
+  }
+
+  /**
+   * A chord built on a scale degree, spelled to agree with the key.
+   *   rootOffset  semitones from the key's root to the chord's root - stored
+   *               this way so the chord moves with the key (a "V" stays a V)
+   *
+   * byInterval[0..11] is relative to the CHORD root, like a key's:
+   *   isChordTone, isRoot, degree (chord function: 1 ♭3 5 ♭7), note, inScale
+   */
+  function createChord(key, rootOffset, chordId) {
+    const chord = getChord(chordId);
+    if (!chord) return null;
+
+    const offset = mod12(rootOffset);
+    const rootPc = mod12(key.rootPc + offset);
+    const rootName = key.byInterval[offset].note;
+    const rootSpelled = parseSpelled(rootName);
+    const labels = degreeLabels(chord);
+
+    const tones = chord.intervals.map((iv, i) => {
+      const pc = mod12(rootPc + iv);
+      const inKey = key.byInterval[mod12(pc - key.rootPc)];
+      let note = inKey.note;
+      // A chord tone the scale lacks is spelled from the chord's own root
+      // (E major in C: G♯, not A♭), unless that gives an awkward spelling.
+      if (!inKey.inScale) {
+        const sp = spellTone(rootSpelled, labels[i], iv);
+        const awkward = Math.abs(sp.alter) > 1 || (sp.alter !== 0 && LETTER_PC.indexOf(sp.pc) !== -1);
+        if (!awkward) note = formatSpelled(sp);
+      }
+      return { interval: iv, pc, degree: labels[i], note, inScale: inKey.inScale };
+    });
+
+    const byInterval = [];
+    for (let iv = 0; iv < 12; iv++) {
+      byInterval.push({ interval: iv, isChordTone: false, isRoot: iv === 0, degree: CHROMATIC_DEGREES[iv], note: "" });
+    }
+    tones.forEach((t) => {
+      Object.assign(byInterval[t.interval], { isChordTone: true, degree: t.degree, note: t.note, inScale: t.inScale });
+    });
+
+    return {
+      chord,
+      rootPc,
+      rootOffset: offset,
+      rootName,
+      symbol: rootName + chord.symbol,
+      tones,
+      byInterval,
+      fitsScale: tones.every((t) => t.inScale),
+      isChordTone(pc) { return byInterval[mod12(pc - rootPc)].isChordTone; }
+    };
+  }
+
+  const ROMAN = ["I", "II", "III", "IV", "V", "VI", "VII"];
+
+  /** Degree "♭3" + chord -> "♭III", "ii", "vii°", "V7". */
+  function romanNumeral(degreeLabel, chord) {
+    const acc = degreeLabel.replace(/\d+/g, "");
+    const numeral = ROMAN[(degreeNumber(degreeLabel) - 1) % 7];
+    const iv = chord.intervals;
+    const minorish = iv.indexOf(3) !== -1 && iv.indexOf(4) === -1;
+    return acc + (minorish ? numeral.toLowerCase() : numeral) + chord.roman;
+  }
+
+  /**
+   * Every chord in the catalogue whose tones all sit inside the key, grouped
+   * by the scale degree it is built on. Works for any scale, not just
+   * seven-note ones: a pentatonic simply offers fewer chords.
+   */
+  function diatonicChords(key, family) {
+    const pool = family ? CHORDS.filter((c) => c.family === family) : CHORDS;
+    return key.tones.map((t) => ({
+      degree: t.degree,
+      offset: t.interval,
+      note: t.note,
+      chords: pool
+        .filter((c) => c.intervals.every((iv) => key.isScaleTone(t.pc + iv)))
+        .map((c) => ({ chord: c, symbol: t.note + c.symbol, roman: romanNumeral(t.degree, c) }))
+    }));
+  }
+
   /** Label for the root picker: "C", "C♯ / D♭". */
   function rootPickerLabel(pc) {
     const opts = rootSpellings(pc);
@@ -259,7 +383,12 @@
     CHROMATIC_DEGREES,
     SCALES,
     GROUPS,
+    CHORDS,
     mod12,
+    getChord,
+    createChord,
+    diatonicChords,
+    romanNumeral,
     getScale,
     degreeLabels,
     rootSpellings,

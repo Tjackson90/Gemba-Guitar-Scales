@@ -134,5 +134,40 @@
     ] }
   ];
 
-  return { SCALES, GROUPS };
+  /**
+   * Chords, for the chord-tone overlay. Triads also appear in the scale
+   * browser (as "Major Triad" etc.) so their shapes can be seen on their own.
+   *   symbol  appended to the root: "m7" -> Am7
+   *   roman   appended to the Roman numeral: "°" -> vii°
+   */
+  const CHORDS = [
+    /* ---- triads ---- */
+    { id: "maj",     family: "triad",   name: "Major",       symbol: "",            roman: "",      intervals: [0, 4, 7] },
+    { id: "min",     family: "triad",   name: "Minor",       symbol: "m",           roman: "",      intervals: [0, 3, 7] },
+    { id: "dim",     family: "triad",   name: "Diminished",  symbol: "°",      roman: "°", intervals: [0, 3, 6] },
+    { id: "aug",     family: "triad",   name: "Augmented",   symbol: "+",           roman: "+",     intervals: [0, 4, 8], degrees: "1 3 #5" },
+    { id: "sus2",    family: "triad",   name: "Sus2",        symbol: "sus2",        roman: "sus2",  intervals: [0, 2, 7] },
+    { id: "sus4",    family: "triad",   name: "Sus4",        symbol: "sus4",        roman: "sus4",  intervals: [0, 5, 7] },
+    { id: "susb2",   family: "triad",   name: "Sus♭2",  aka: ["Phrygian Sus"], symbol: "sus♭2", roman: "sus♭2", intervals: [0, 1, 7] },
+    { id: "sus#4",   family: "triad",   name: "Sus♯4",  aka: ["Lydian Sus"],   symbol: "sus♯4", roman: "sus♯4", intervals: [0, 6, 7], degrees: "1 #4 5" },
+    { id: "majb5",   family: "triad",   name: "Major ♭5", symbol: "(♭5)", roman: "(♭5)", intervals: [0, 4, 6] },
+    { id: "min#5",   family: "triad",   name: "Minor ♯5", symbol: "m(♯5)", roman: "(♯5)", intervals: [0, 3, 8], degrees: "1 b3 #5" },
+    { id: "quartal", family: "triad",   name: "Quartal",     aka: ["Stacked Fourths"], symbol: " quartal", roman: " quartal",  intervals: [0, 5, 10] },
+
+    /* ---- sixths and sevenths ---- */
+    { id: "maj7",    family: "seventh", name: "Major 7",     symbol: "maj7",        roman: "maj7",  intervals: [0, 4, 7, 11] },
+    { id: "7",       family: "seventh", name: "Dominant 7",  symbol: "7",           roman: "7",     intervals: [0, 4, 7, 10] },
+    { id: "m7",      family: "seventh", name: "Minor 7",     symbol: "m7",          roman: "7",     intervals: [0, 3, 7, 10] },
+    { id: "m7b5",    family: "seventh", name: "Half-Diminished", aka: ["Minor 7♭5"], symbol: "m7♭5", roman: "ø7", intervals: [0, 3, 6, 10] },
+    { id: "dim7",    family: "seventh", name: "Diminished 7", symbol: "°7",    roman: "°7", intervals: [0, 3, 6, 9], degrees: "1 b3 b5 bb7" },
+    { id: "mmaj7",   family: "seventh", name: "Minor Major 7", symbol: "m(maj7)",   roman: "(maj7)", intervals: [0, 3, 7, 11] },
+    { id: "maj7#5",  family: "seventh", name: "Augmented Major 7", symbol: "maj7♯5", roman: "+maj7", intervals: [0, 4, 8, 11], degrees: "1 3 #5 7" },
+    { id: "7#5",     family: "seventh", name: "Augmented 7", symbol: "7♯5",    roman: "+7",    intervals: [0, 4, 8, 10], degrees: "1 3 #5 b7" },
+    { id: "7b5",     family: "seventh", name: "Dominant 7♭5", symbol: "7♭5", roman: "7♭5", intervals: [0, 4, 6, 10] },
+    { id: "7sus4",   family: "seventh", name: "7sus4",       symbol: "7sus4",       roman: "7sus4", intervals: [0, 5, 7, 10] },
+    { id: "6",       family: "seventh", name: "Major 6",     symbol: "6",           roman: "6",     intervals: [0, 4, 7, 9] },
+    { id: "m6",      family: "seventh", name: "Minor 6",     symbol: "m6",          roman: "6",     intervals: [0, 3, 7, 9] }
+  ];
+
+  return { SCALES, GROUPS, CHORDS };
 });

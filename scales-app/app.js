@@ -33,6 +33,14 @@
 
   const SPEEDS = { slow: 0.6, medium: 0.38, fast: 0.24 };
   const SCALE_IDS = Theory.SCALES.map((s) => s.id);
+  const CHORD_IDS = Theory.CHORDS.map((c) => c.id);
+  const DIRECTIONS = ["up", "down", "updown"];
+  const DIR_LABELS = { up: "ascending", down: "descending", updown: "ascending then descending" };
+
+  function intOrNull(v, lo, hi) {
+    const n = parseInt(v, 10);
+    return Number.isFinite(n) && n >= lo && n <= hi ? n : null;
+  }
 
   /* -------------------------------------------------------------- state */
 
@@ -53,8 +61,23 @@
     voice: pick(store.get("voice"), Object.keys(Audio.VOICES), "acoustic"),
     ring: pick(store.get("ring"), Object.keys(Audio.RINGS), "short"),
     favorites: loadFavorites(),
-    scaleTab: pick(store.get("scaleTab"), ["all", "favorites"], "all")
+    scaleTab: pick(store.get("scaleTab"), ["all", "favorites"], "all"),
+
+    // Chord-tone overlay. The chord root is kept as an offset from the key's
+    // root, so a chosen V chord stays the V when the key changes.
+    chordId: pick(store.get("chord"), CHORD_IDS, null),
+    chordOffset: intOrNull(store.get("chordOffset"), 0, 11),
+    chordTab: pick(store.get("chordTab"), ["key", "all"], "key"),
+
+    // Position focus: a box of frets, the rest of the neck faded behind it.
+    focusOn: store.get("focus", "0") === "1",
+    focusStart: intOrNull(store.get("focusStart"), 0, 24),
+    focusSpan: Number(pick(store.get("focusSpan"), Fret.FOCUS_SPANS.map(String), "5"))
   };
+  if (state.chordId === null || state.chordOffset === null) {
+    state.chordId = null;
+    state.chordOffset = null;
+  }
 
   function loadFavorites() {
     try {
@@ -64,12 +87,13 @@
   }
 
   let key = null;
+  let chord = null;
   let board = null;
 
   /* --------------------------------------------------------------- view */
 
   const scroller = $("boardScroll");
-  const view = window.GembaBoardView.create(scroller, onCellTap);
+  const view = window.GembaBoardView.create(scroller, onCellTap, onFretTap);
 
   function buildBoard() {
     board = Fret.createFretboard({ tuning: "standard", fretCount: state.fretRange });
@@ -77,7 +101,7 @@
       ? scroller.scrollLeft / (scroller.scrollWidth - scroller.clientWidth) : 0;
 
     view.build(board);
-    view.render(key, state.displayMode, state.showChromatic);
+    view.render(key, state.displayMode, state.showChromatic, overlay());
 
     scroller.scrollLeft = ratio * Math.max(0, scroller.scrollWidth - scroller.clientWidth);
     updateNav();
@@ -87,8 +111,23 @@
     key = Theory.createKey(state.selectedRoot, state.selectedScale, state.preferredAccidental);
   }
 
+  function rebuildChord() {
+    chord = state.chordId ? Theory.createChord(key, state.chordOffset, state.chordId) : null;
+  }
+
+  /** The box in force, or null. Defaults to the root's fret on the low E. */
+  function currentFocus() {
+    if (!state.focusOn) return null;
+    const start = state.focusStart === null ? Theory.mod12(key.rootPc - 4) : state.focusStart;
+    return Fret.clampFocus(start, state.focusSpan, state.fretRange);
+  }
+
+  function overlay() {
+    return { chord, focus: currentFocus() };
+  }
+
   function renderBoard() {
-    view.render(key, state.displayMode, state.showChromatic);
+    view.render(key, state.displayMode, state.showChromatic, overlay());
   }
 
   function renderToolbar() {
@@ -98,8 +137,23 @@
     $("scaleBtn").setAttribute("aria-label", "Scale " + key.scale.name + ". Change scale");
 
     syncSeg($("modeSeg"), "mode", state.displayMode);
-    syncSeg($("dirSeg"), "dir", state.direction);
     syncSeg($("dirSeg2"), "dir", state.direction);
+    syncSeg($("spanSeg"), "value", String(state.focusSpan));
+
+    const dirBtn = $("dirBtn");
+    DIRECTIONS.forEach((d) => dirBtn.classList.toggle("dir-" + d, d === state.direction));
+    dirBtn.setAttribute("aria-label", "Playback direction: " + DIR_LABELS[state.direction] + ". Tap to change");
+
+    const chordBtn = $("chordBtn");
+    chordBtn.classList.toggle("is-active", !!chord);
+    $("chordLabel").textContent = chord ? chord.symbol : "Chord";
+    chordBtn.setAttribute("aria-label", chord
+      ? "Chord overlay " + chord.symbol + ". Change or clear"
+      : "Chord overlay: highlight a chord inside the scale");
+
+    const focusBtn = $("focusBtn");
+    focusBtn.classList.toggle("is-active", state.focusOn);
+    focusBtn.setAttribute("aria-pressed", String(state.focusOn));
     syncSeg($("themeSeg"), "value", state.theme);
     syncSeg($("accSeg"), "value", state.preferredAccidental);
     syncSeg($("fretSeg"), "value", String(state.fretRange));
@@ -112,10 +166,16 @@
     const playing = state.playbackState === "playing";
     $("playBtn").classList.toggle("is-playing", playing);
     $("playBtn").setAttribute("aria-pressed", String(playing));
-    $("playBtn").setAttribute("aria-label", playing ? "Stop playback" : "Play scale");
+    const what = (chord ? "chord" : "scale") + (state.focusOn ? " in the box" : "");
+    $("playBtn").setAttribute("aria-label", playing ? "Stop playback" : "Play " + what);
 
+    const f = currentFocus();
     $("boardSummary").textContent =
-      `${key.rootName} ${key.scale.name}: ${key.tones.map((t) => t.note).join(" ")}`;
+      `${key.rootName} ${key.scale.name}: ${key.tones.map((t) => t.note).join(" ")}` +
+      (chord ? `. Showing ${chord.symbol}: ${chord.tones.map((t) => t.note).join(" ")}` : "") +
+      (f ? `. Focus on frets ${f.start} to ${f.end}` : "");
+
+    updateNav();
   }
 
   function renderLegend() {
@@ -124,16 +184,23 @@
 
     const title = document.createElement("span");
     title.className = "legend-title";
-    title.textContent = `${key.rootName} ${key.scale.name}`;
+    title.textContent = chord
+      ? `${chord.symbol} \u00B7 in ${key.rootName} ${key.scale.name}`
+      : `${key.rootName} ${key.scale.name}`;
     legend.appendChild(title);
+    legend.classList.toggle("is-chord", !!chord);
 
-    key.tones.forEach((t) => {
+    // With a chord on, the legend lists the chord's tones and their function;
+    // a tone the scale lacks is marked so the clash is plain.
+    const tones = chord ? chord.tones : key.tones;
+    tones.forEach((t) => {
       const chip = document.createElement("span");
-      chip.className = "chip" + (t.interval === 0 ? " is-root" : "");
-      chip.dataset.interval = t.interval;
+      chip.className = "chip" + (t.interval === 0 ? " is-root" : "") + (chord && !t.inScale ? " is-out" : "");
+      chip.dataset.pc = t.pc;
       chip.innerHTML = `<span class="chip-note"></span><span class="chip-deg"></span>`;
       chip.firstChild.textContent = t.note;
       chip.lastChild.textContent = t.degree;
+      if (chord && !t.inScale) chip.title = t.note + " is outside the scale";
       legend.appendChild(chip);
     });
   }
@@ -259,6 +326,100 @@
     list.scrollTop = keepScroll;
   }
 
+  /* ---------------------------------------------------------- chord page */
+
+  let chordPickRoot = 0;   // root offset being browsed on the All chords tab
+
+  function chordChip(offset, c, main, sub, extraClass) {
+    const b = document.createElement("button");
+    b.type = "button";
+    const active = chord && state.chordId === c.id && state.chordOffset === offset;
+    b.className = "chord-chip" + (active ? " is-active" : "") + (extraClass || "");
+    b.dataset.offset = offset;
+    b.dataset.chord = c.id;
+    b.setAttribute("aria-pressed", String(!!active));
+    b.innerHTML = `<span class="chord-chip-main"></span><span class="chord-chip-sub"></span>`;
+    b.firstChild.textContent = main;
+    b.lastChild.textContent = sub;
+    return b;
+  }
+
+  function renderChordPage() {
+    const body = $("chordBody");
+    body.innerHTML = "";
+    $("chordPageSub").textContent = `in ${key.rootName} ${key.scale.name}`;
+    $("chordClear").hidden = !chord;
+    $("chordTabs").querySelectorAll(".seg").forEach((b) => {
+      const on = b.dataset.tab === state.chordTab;
+      b.classList.toggle("is-active", on);
+      b.setAttribute("aria-selected", String(on));
+    });
+
+    if (state.chordTab === "key") {
+      // One row per scale degree: every catalogue chord that fits the scale.
+      Theory.diatonicChords(key).forEach((d) => {
+        const row = document.createElement("div");
+        row.className = "chord-degree";
+        const head = document.createElement("div");
+        head.className = "chord-degree-head";
+        head.innerHTML = `<span class="chord-degree-num"></span><span class="chord-degree-note"></span>`;
+        head.firstChild.textContent = d.degree;
+        head.lastChild.textContent = d.note;
+        row.appendChild(head);
+
+        const chips = document.createElement("div");
+        chips.className = "chord-chips";
+        if (!d.chords.length) {
+          const none = document.createElement("span");
+          none.className = "chord-none";
+          none.textContent = "No chords from the list fit here";
+          chips.appendChild(none);
+        }
+        d.chords.forEach((x) => chips.appendChild(chordChip(d.offset, x.chord, x.symbol, x.roman)));
+        row.appendChild(chips);
+        body.appendChild(row);
+      });
+      return;
+    }
+
+    // All chords: pick any root (named as the key spells it), then any quality.
+    const roots = document.createElement("div");
+    roots.className = "chord-roots";
+    roots.setAttribute("role", "radiogroup");
+    roots.setAttribute("aria-label", "Chord root");
+    for (let o = 0; o < 12; o++) {
+      const info = key.byInterval[o];
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "chord-root" + (o === chordPickRoot ? " is-active" : "") + (info.inScale ? " in-scale" : "");
+      b.dataset.pickRoot = o;
+      b.setAttribute("role", "radio");
+      b.setAttribute("aria-checked", String(o === chordPickRoot));
+      b.textContent = info.note;
+      roots.appendChild(b);
+    }
+    body.appendChild(roots);
+
+    const rootName = key.byInterval[chordPickRoot].note;
+    [["triad", "Triads"], ["seventh", "Sixths & sevenths"]].forEach(([family, label]) => {
+      const sec = document.createElement("section");
+      sec.className = "scale-group";
+      const h = document.createElement("h3");
+      h.className = "scale-group-title";
+      h.textContent = label;
+      sec.appendChild(h);
+      const grid = document.createElement("div");
+      grid.className = "chord-grid";
+      Theory.CHORDS.filter((c) => c.family === family).forEach((c) => {
+        const fits = c.intervals.every((iv) => key.isScaleTone(key.rootPc + chordPickRoot + iv));
+        grid.appendChild(chordChip(chordPickRoot, c, rootName + c.symbol,
+          c.name + (fits ? " \u00B7 in scale" : ""), fits ? " fits" : ""));
+      });
+      sec.appendChild(grid);
+      body.appendChild(sec);
+    });
+  }
+
   function syncTabs() {
     $("scaleTabs").querySelectorAll(".seg").forEach((b) => {
       const on = b.dataset.tab === state.scaleTab;
@@ -297,21 +458,25 @@
     const keyChanged = state.selectedRoot !== before.selectedRoot ||
       state.selectedScale !== before.selectedScale ||
       state.preferredAccidental !== before.preferredAccidental;
+    const chordChanged = keyChanged || state.chordId !== before.chordId ||
+      state.chordOffset !== before.chordOffset;
+    const focusChanged = state.focusOn !== before.focusOn || state.focusStart !== before.focusStart ||
+      state.focusSpan !== before.focusSpan || state.fretRange !== before.fretRange;
 
-    if (keyChanged && state.playbackState === "playing") stopPlayback();
+    if ((chordChanged || focusChanged) && state.playbackState === "playing") stopPlayback();
     if (keyChanged) rebuildKey();
+    if (chordChanged) rebuildChord();
 
     if (state.theme !== before.theme) applyTheme();
 
     if (state.fretRange !== before.fretRange) buildBoard();
-    else if (keyChanged || state.displayMode !== before.displayMode ||
+    else if (chordChanged || focusChanged || state.displayMode !== before.displayMode ||
              state.showChromatic !== before.showChromatic) renderBoard();
 
-    if (keyChanged) {
-      renderLegend();
-      renderPickers();
-    }
+    if (chordChanged) renderLegend();
+    if (keyChanged) renderPickers();
     renderToolbar();
+    if (focusChanged && state.focusOn) revealFocus();
 
     store.set("root", state.selectedRoot);
     store.set("scale", state.selectedScale);
@@ -326,6 +491,12 @@
     store.set("voice", state.voice);
     store.set("ring", state.ring);
     store.set("scaleTab", state.scaleTab);
+    store.set("chord", state.chordId || "");
+    store.set("chordOffset", state.chordOffset === null ? "" : state.chordOffset);
+    store.set("chordTab", state.chordTab);
+    store.set("focus", state.focusOn ? "1" : "0");
+    store.set("focusStart", state.focusStart === null ? "" : state.focusStart);
+    store.set("focusSpan", state.focusSpan);
 
     Audio.setVoice(state.voice);
     Audio.setRing(state.ring);
@@ -387,6 +558,14 @@
     sheet.setAttribute("aria-hidden", "false");
     document.querySelector(".screen").inert = true;
     if (trigger) trigger.setAttribute("aria-expanded", "true");
+
+    if (id === "chordPage") {
+      chordPickRoot = state.chordOffset === null ? 0 : state.chordOffset;
+      renderChordPage();
+      $("chordBody").scrollTop = 0;
+      const current = sheet.querySelector(".chord-chip.is-active");
+      if (current) current.scrollIntoView({ block: "center" });
+    }
 
     if (id === "scalePage") {
       renderScaleList();
@@ -458,6 +637,17 @@
       voices.appendChild(b);
     });
 
+    const spans = $("spanSeg");
+    Fret.FOCUS_SPANS.forEach((n) => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "seg";
+      b.setAttribute("role", "radio");
+      b.dataset.value = String(n);
+      b.textContent = n + " frets";
+      spans.appendChild(b);
+    });
+
     const frets = $("fretSeg");
     Fret.FRET_RANGES.forEach((n) => {
       const b = document.createElement("button");
@@ -476,14 +666,49 @@
     const max = scroller.scrollWidth - scroller.clientWidth;
     const left = $("navLeft");
     const right = $("navRight");
-    left.disabled = scroller.scrollLeft <= 1;
-    right.disabled = scroller.scrollLeft >= max - 1;
     const whole = max <= 1;
-    left.title = right.title = whole ? "The whole neck is in view" : "";
+    const f = currentFocus();
+
+    // In focus mode the arrows walk the box a fret at a time.
+    if (f) {
+      left.disabled = f.start <= 0;
+      right.disabled = f.end >= state.fretRange;
+      left.setAttribute("aria-label", "Move the box toward the nut");
+      right.setAttribute("aria-label", "Move the box toward the body");
+      left.title = right.title = "";
+    } else {
+      left.disabled = scroller.scrollLeft <= 1;
+      right.disabled = scroller.scrollLeft >= max - 1;
+      left.setAttribute("aria-label", "Toward the nut");
+      right.setAttribute("aria-label", "Toward the body");
+      left.title = right.title = whole ? "The whole neck is in view" : "";
+    }
     $("rotateHint").classList.toggle("is-needed", !whole);
   }
 
+  function moveFocus(d) {
+    const f = currentFocus();
+    if (!f) return;
+    set({ focusStart: Fret.clampFocus(f.start + d, state.focusSpan, state.fretRange).start });
+  }
+
+  /** Scrolls the neck so the whole box is in view, centring it if it was not. */
+  function revealFocus() {
+    const f = currentFocus();
+    const x = f && view.spanX(f.start, f.end);
+    if (!x) return;
+    const viewL = scroller.scrollLeft;
+    const viewR = viewL + scroller.clientWidth;
+    if (x.left >= viewL + 4 && x.right <= viewR - 4) return;
+    scroller.scrollTo({ left: (x.left + x.right) / 2 - scroller.clientWidth / 2, behavior: "smooth" });
+  }
+
+  function onFretTap(fret) {
+    set({ focusOn: true, focusStart: Fret.clampFocus(fret, state.focusSpan, state.fretRange).start });
+  }
+
   function nudge(dir) {
+    if (state.focusOn) { moveFocus(dir); return; }
     // Roughly four frets per press, whatever the board's scale.
     const g = view.geometry;
     const step = g ? (g.fretX[Math.min(5, g.fretX.length - 1)] - g.fretX[1]) : scroller.clientWidth * 0.5;
@@ -494,20 +719,39 @@
 
   let flashTimer = null;
 
-  function highlight(midi) {
-    view.setSounding(midi);
-    const iv = midi === null ? -1 : Theory.mod12(midi - key.rootPc);
+  function highlight(midi, only) {
+    view.setSounding(midi, only);
+    const pc = midi === null ? -1 : Theory.mod12(midi);
     document.querySelectorAll(".chip").forEach((c) => {
-      c.classList.toggle("is-sounding", Number(c.dataset.interval) === iv);
+      c.classList.toggle("is-sounding", Number(c.dataset.pc) === pc);
     });
   }
 
+  /**
+   * What Play plays: the chord if one is overlaid, else the scale. In focus
+   * mode it runs every such note inside the box, low to high, lighting the
+   * exact position; otherwise one octave from the lowest root.
+   */
+  function playbackItems() {
+    const pcs = chord ? chord.tones.map((t) => t.pc) : key.pitchClasses;
+    const f = currentFocus();
+    if (f) {
+      return Fret.positionSequence(board, pcs, f, state.direction)
+        .map((n) => ({ midi: n.midi, only: { string: n.string, fret: n.fret } }));
+    }
+    const midis = chord
+      ? Fret.arpeggio(chord.rootPc, chord.chord.intervals, state.direction)
+      : Fret.playbackSequence(key, state.direction);
+    return midis.map((m) => ({ midi: m, only: null }));
+  }
+
   function startPlayback() {
-    const seq = Fret.playbackSequence(key, state.direction);
+    const items = playbackItems();
+    if (!items.length) return;
     clearTimeout(flashTimer);
     set({ playbackState: "playing" });
-    Audio.playSequence(seq, SPEEDS[state.speed],
-      (i, midi) => highlight(midi),
+    Audio.playSequence(items.map((x) => x.midi), SPEEDS[state.speed],
+      (i) => highlight(items[i].midi, items[i].only),
       () => {
         highlight(null);
         set({ playbackState: "idle" });
@@ -558,6 +802,52 @@
     renderScaleList();
   });
   $("menuBtn").addEventListener("click", (e) => openSheet("menuSheet", e.currentTarget));
+  $("chordBtn").addEventListener("click", (e) => openSheet("chordPage", e.currentTarget));
+
+  $("focusBtn").addEventListener("click", () => {
+    set(state.focusOn ? { focusOn: false } : { focusOn: true, focusStart: currentFocusStart() });
+  });
+
+  /** Where a newly switched-on box starts: last place, else the root on low E. */
+  function currentFocusStart() {
+    return state.focusStart === null ? Theory.mod12(key.rootPc - 4) : state.focusStart;
+  }
+
+  $("dirBtn").addEventListener("click", () => {
+    set({ direction: DIRECTIONS[(DIRECTIONS.indexOf(state.direction) + 1) % DIRECTIONS.length] });
+  });
+
+  $("chordTabs").addEventListener("click", (e) => {
+    const b = e.target.closest("[data-tab]");
+    if (!b) return;
+    set({ chordTab: b.dataset.tab });
+    renderChordPage();
+    $("chordBody").scrollTop = 0;
+  });
+
+  $("chordBody").addEventListener("click", (e) => {
+    const r = e.target.closest("[data-pick-root]");
+    if (r) {
+      chordPickRoot = Number(r.dataset.pickRoot);
+      renderChordPage();
+      return;
+    }
+    const c = e.target.closest("[data-chord]");
+    if (!c) return;
+    const offset = Number(c.dataset.offset);
+    // Tapping the chord already shown turns the overlay off.
+    if (state.chordId === c.dataset.chord && state.chordOffset === offset) {
+      set({ chordId: null, chordOffset: null });
+    } else {
+      set({ chordId: c.dataset.chord, chordOffset: offset });
+    }
+    closeSheet();
+  });
+
+  $("chordClear").addEventListener("click", () => {
+    set({ chordId: null, chordOffset: null });
+    closeSheet();
+  });
   $("scrim").addEventListener("click", () => closeSheet());
   document.querySelectorAll("[data-close]").forEach((b) => b.addEventListener("click", () => closeSheet()));
 
@@ -572,7 +862,7 @@
   });
 
   bindSeg($("modeSeg"), "mode", (v) => set({ displayMode: v }));
-  bindSeg($("dirSeg"), "dir", (v) => set({ direction: v }));
+  bindSeg($("spanSeg"), "value", (v) => set({ focusSpan: Number(v) }));
   bindSeg($("dirSeg2"), "dir", (v) => set({ direction: v }));
   bindSeg($("themeSeg"), "value", (v) => set({ theme: v }));
   bindSeg($("accSeg"), "value", (v) => set({ preferredAccidental: v }));
@@ -626,6 +916,7 @@
   Audio.setVoice(state.voice);
   Audio.setRing(state.ring);
   rebuildKey();
+  rebuildChord();
   buildPickers();
   renderPickers();
   renderLegend();

@@ -97,22 +97,70 @@
    *   direction "up" | "down" | "updown"
    */
   function playbackSequence(key, direction, lowestMidi) {
+    return arpeggio(key.rootPc, key.scale.intervals, direction, lowestMidi);
+  }
+
+  /** Any interval set from its lowest playable root, one octave, as MIDI. */
+  function arpeggio(rootPc, intervals, direction, lowestMidi) {
     const floor = lowestMidi === undefined ? TUNINGS.standard.strings[0].midi : lowestMidi;
-    let rootMidi = floor + ((((key.rootPc - floor) % 12) + 12) % 12);
+    const rootMidi = floor + ((((rootPc - floor) % 12) + 12) % 12);
+    return applyDirection(intervals.map((iv) => rootMidi + iv).concat(rootMidi + 12), direction);
+  }
 
-    const up = key.scale.intervals.map((iv) => rootMidi + iv).concat(rootMidi + 12);
+  function applyDirection(up, direction) {
     const down = up.slice().reverse();
-
     if (direction === "down") return down;
     if (direction === "updown") return up.concat(down.slice(1));
     return up;
   }
 
+  /* ------------------------------------------------------- position focus */
+
+  /** Spans offered for the focus box, in frets. */
+  const FOCUS_SPANS = [4, 5, 6];
+
+  /**
+   * A box of `span` frets starting at `start` (0 = open position), kept on
+   * the board. Returns { start, end, span } with end inclusive.
+   */
+  function clampFocus(start, span, fretCount) {
+    const width = Math.max(1, Math.min(span, fretCount + 1));
+    const first = Math.max(0, Math.min(start, fretCount + 1 - width));
+    return { start: first, end: first + width - 1, span: width };
+  }
+
+  /**
+   * The notes of a pitch-class set inside a box, in the order a player would
+   * run them in position: lowest to highest pitch, each pitch once. When a
+   * pitch sits on two strings in the box, the lower string takes it, as it
+   * would when ascending without shifting.
+   * Returns [{ midi, string, fret }] in the requested direction.
+   */
+  function positionSequence(board, pitchClasses, focus, direction) {
+    const wanted = new Set(pitchClasses.map((pc) => ((pc % 12) + 12) % 12));
+    const byMidi = new Map();
+
+    board.strings.forEach((_, s) => {
+      for (let f = focus.start; f <= focus.end && f <= board.fretCount; f++) {
+        const midi = board.pitchAt(s, f);
+        if (!wanted.has(midi % 12)) continue;
+        if (!byMidi.has(midi) || s < byMidi.get(midi).string) byMidi.set(midi, { midi, string: s, fret: f });
+      }
+    });
+
+    const up = Array.from(byMidi.values()).sort((a, b) => a.midi - b.midi);
+    return applyDirection(up, direction);
+  }
+
   return {
     TUNINGS,
     FRET_RANGES,
+    FOCUS_SPANS,
     markerAt,
     createFretboard,
-    playbackSequence
+    playbackSequence,
+    arpeggio,
+    clampFocus,
+    positionSequence
   };
 });

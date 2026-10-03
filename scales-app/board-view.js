@@ -26,9 +26,10 @@ window.GembaBoardView = (function () {
     return w;
   }
 
-  function create(scroller, onTap) {
+  function create(scroller, onTap, onFretTap) {
     let root = null;
     let cells = [];
+    let focusRect = null;
     let geometry = null;
     let last = { mode: null, chromatic: null };
 
@@ -133,7 +134,20 @@ window.GembaBoardView = (function () {
           x: g.cx(f), y: g.numberRow - 6, "text-anchor": "middle"
         }, nums);
         t.textContent = f === 0 ? "open" : String(f);
+
+        const left = f === 0 ? g.padX : g.fretX[f - 1];
+        const right = f === 0 ? g.fretX[0] : g.fretX[f];
+        const hit = svg("rect", { class: "fb-num-hit", x: left, y: 0, width: right - left, height: g.numberRow + 6 }, nums);
+        hit.addEventListener("pointerdown", (e) => {
+          if (e.pointerType === "mouse" && e.button !== 0) return;
+          onFretTap && onFretTap(f);
+        });
       }
+
+      // Position-focus frame: sits over the wood and strings, under the notes.
+      focusRect = svg("rect", {
+        class: "fb-focus", y: boardTop - 5, height: boardBottom - boardTop + 10, rx: 10, x: 0, width: 0
+      }, root);
 
       /* ---- note layer ---- */
       const layer = svg("g", { class: "fb-notes" }, root);
@@ -174,17 +188,36 @@ window.GembaBoardView = (function () {
      * Pure presentation: key is GembaTheory.createKey(), mode "intervals" |
      * "notes". Only nodes whose text or class actually changes are touched.
      */
-    function render(key, mode, showChromatic) {
+    function render(key, mode, showChromatic, overlay) {
       const g = geometry;
       if (!g) return;
+      const chord = overlay && overlay.chord;
+      const focus = overlay && overlay.focus;
 
       cells.forEach((c) => {
         const iv = ((c.p.pc - key.rootPc) % 12 + 12) % 12;
         const info = key.byInterval[iv];
-        const text = mode === "notes" ? info.note : info.degree;
+        let text = mode === "notes" ? info.note : info.degree;
+        let cls = "cell" + (info.inScale ? " in-scale" : " out") + (info.isRoot ? " is-root" : "");
 
-        const cls = "cell" + (info.inScale ? " in-scale" : " out") + (info.isRoot ? " is-root" : "") +
-          (c.node.classList.contains("is-sounding") ? " is-sounding" : "");
+        // Chord overlay: chord tones step forward labelled by chord function
+        // (1 ♭3 5 ♭7); the rest of the scale stays visible but recedes.
+        if (chord) {
+          const ci = chord.byInterval[((c.p.pc - chord.rootPc) % 12 + 12) % 12];
+          if (ci.isChordTone) {
+            cls += " is-chord" + (ci.isRoot ? " is-chord-root" : "") + (ci.inScale ? "" : " chord-out");
+            text = mode === "notes" ? ci.note : ci.degree;
+          } else {
+            if (info.inScale) cls += " is-dimmed";
+            // Everything counts from the chord's root while a chord is shown,
+            // so the faded scale tones read as its tensions (2 4 6, ♭6 ...).
+            if (mode !== "notes") text = ci.degree;
+          }
+        }
+
+        // Position focus: the box stays bright, the rest of the neck fades.
+        if (focus && (c.p.fret < focus.start || c.p.fret > focus.end)) cls += " is-outside";
+        if (c.node.classList.contains("is-sounding")) cls += " is-sounding";
         if (c.node.getAttribute("class") !== cls) c.node.setAttribute("class", cls);
 
         if (c.text !== text) {
@@ -200,12 +233,44 @@ window.GembaBoardView = (function () {
         root.classList.toggle("hide-chromatic", !showChromatic);
         last.chromatic = showChromatic;
       }
+
+      root.classList.toggle("has-chord", !!chord);
+      placeFocus(focus);
     }
 
-    /** Pulses every position that sounds the given MIDI note (null clears). */
-    function setSounding(midi) {
+    function placeFocus(focus) {
+      if (!focusRect) return;
+      if (!focus) {
+        focusRect.setAttribute("class", "fb-focus is-hidden");
+        return;
+      }
+      const g = geometry;
+      const left = focus.start === 0 ? g.padX : g.fretX[focus.start - 1];
+      const right = focus.end === 0 ? g.fretX[0] : g.fretX[focus.end];
+      focusRect.setAttribute("x", (left - 3).toFixed(1));
+      focusRect.setAttribute("width", (right - left + 6).toFixed(1));
+      focusRect.setAttribute("class", "fb-focus");
+    }
+
+    /** x range of a fret span, for scrolling the box into view. */
+    function spanX(start, end) {
+      const g = geometry;
+      if (!g) return null;
+      return {
+        left: start === 0 ? 0 : g.fretX[start - 1],
+        right: end === 0 ? g.fretX[0] : g.fretX[Math.min(end, g.fretX.length - 1)]
+      };
+    }
+
+    /**
+     * Pulses the positions sounding a MIDI note (null clears). With `only`
+     * ({ string, fret }) just that one position lights, as in box playback.
+     */
+    function setSounding(midi, only) {
       cells.forEach((c) => {
-        c.node.classList.toggle("is-sounding", midi !== null && c.p.midi === midi);
+        const hit = midi !== null && c.p.midi === midi &&
+          (!only || (c.p.string === only.string && c.p.fret === only.fret));
+        c.node.classList.toggle("is-sounding", hit);
       });
     }
 
@@ -213,6 +278,7 @@ window.GembaBoardView = (function () {
       build,
       render,
       setSounding,
+      spanX,
       get geometry() { return geometry; }
     };
   }

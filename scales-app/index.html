@@ -64,9 +64,29 @@
     </div>
 
     <div class="tb-group tb-view">
+      <button class="chord-btn" id="chordBtn" type="button"
+              aria-haspopup="dialog" aria-controls="chordPage" aria-expanded="false">
+        <svg class="icon" viewBox="-12 -12 24 24" aria-hidden="true">
+          <circle cx="-5" cy="5" r="3.2"/><circle cx="1" cy="-1" r="3.2"/><circle cx="7" cy="-7" r="3.2"/>
+        </svg>
+        <span class="chord-btn-label" id="chordLabel">Chord</span>
+      </button>
+
+      <button class="tool-btn" id="focusBtn" type="button" aria-pressed="false"
+              aria-label="Position focus: isolate a box of frets">
+        <svg class="icon" viewBox="-12 -12 24 24" aria-hidden="true">
+          <path d="M-10 -6V-9H-7M7 -9H10V-6M10 6V9H7M-7 9H-10V6"/>
+          <path d="M-3 -9V9M3 -9V9" class="icon-faint"/>
+        </svg>
+      </button>
+
       <div class="segmented" id="modeSeg" role="radiogroup" aria-label="Label notes by">
-        <button class="seg" type="button" role="radio" data-mode="intervals">Intervals</button>
-        <button class="seg" type="button" role="radio" data-mode="notes">Notes</button>
+        <button class="seg" type="button" role="radio" data-mode="intervals" aria-label="Intervals">
+          <span class="lbl-long">Intervals</span><span class="lbl-short">1&#8202;3&#8202;5</span>
+        </button>
+        <button class="seg" type="button" role="radio" data-mode="notes" aria-label="Notes">
+          <span class="lbl-long">Notes</span><span class="lbl-short">C&#8202;E&#8202;G</span>
+        </button>
       </div>
 
       <div class="nav-pair" role="group" aria-label="Move along the neck">
@@ -80,17 +100,12 @@
     </div>
 
     <div class="tb-group tb-play">
-      <div class="segmented dir-seg" id="dirSeg" role="radiogroup" aria-label="Playback direction">
-        <button class="seg" type="button" role="radio" data-dir="up" aria-label="Ascending">
-          <svg class="icon" viewBox="-12 -12 24 24" aria-hidden="true"><path d="M0 8V-8M-6 -2L0 -8L6 -2"/></svg>
-        </button>
-        <button class="seg" type="button" role="radio" data-dir="down" aria-label="Descending">
-          <svg class="icon" viewBox="-12 -12 24 24" aria-hidden="true"><path d="M0 -8V8M-6 2L0 8L6 2"/></svg>
-        </button>
-        <button class="seg" type="button" role="radio" data-dir="updown" aria-label="Ascending then descending">
-          <svg class="icon" viewBox="-12 -12 24 24" aria-hidden="true"><path d="M-4 8V-8M-9 -3L-4 -8L1 -3M4 -8V8M-1 3L4 8L9 3"/></svg>
-        </button>
-      </div>
+      <!-- One button cycles up / down / up+down; Settings has the same choice spelled out. -->
+      <button class="tool-btn dir-btn" id="dirBtn" type="button" aria-label="Playback direction: ascending">
+        <svg class="icon dir-up" viewBox="-12 -12 24 24" aria-hidden="true"><path d="M0 8V-8M-6 -2L0 -8L6 -2"/></svg>
+        <svg class="icon dir-down" viewBox="-12 -12 24 24" aria-hidden="true"><path d="M0 -8V8M-6 2L0 8L6 2"/></svg>
+        <svg class="icon dir-updown" viewBox="-12 -12 24 24" aria-hidden="true"><path d="M-4 8V-8M-9 -3L-4 -8L1 -3M4 -8V8M-1 3L4 8L9 3"/></svg>
+      </button>
 
       <button class="btn-play" id="playBtn" type="button" aria-pressed="false" aria-label="Play scale">
         <svg class="play-glyph" viewBox="-12 -12 24 24" aria-hidden="true">
@@ -153,6 +168,29 @@
   <div class="page-body" id="scaleList"></div>
 </section>
 
+<!-- Chord-tone overlay picker. -->
+<section class="page" id="chordPage" role="dialog" aria-modal="true" aria-labelledby="chordPageTitle" aria-hidden="true">
+  <header class="page-head">
+    <button class="icon-btn" type="button" data-close aria-label="Back to the fretboard">
+      <svg class="icon" viewBox="-12 -12 24 24" aria-hidden="true"><path d="M5 -8L-3 0L5 8"/></svg>
+    </button>
+    <div class="page-title-wrap">
+      <h2 class="sheet-title page-title" id="chordPageTitle">Chord</h2>
+      <span class="page-sub" id="chordPageSub"></span>
+    </div>
+
+    <div class="segmented page-tabs" id="chordTabs" role="tablist" aria-label="Chord lists">
+      <button class="seg" type="button" role="tab" data-tab="key" aria-controls="chordBody">In this scale</button>
+      <button class="seg" type="button" role="tab" data-tab="all" aria-controls="chordBody">All chords</button>
+    </div>
+
+    <button class="pill-btn" id="chordClear" type="button">Clear overlay</button>
+  </header>
+
+  <!-- Generated in app.js -->
+  <div class="page-body" id="chordBody"></div>
+</section>
+
 <aside class="sheet" id="menuSheet" role="dialog" aria-modal="true" aria-labelledby="menuSheetTitle" aria-hidden="true">
   <header class="sheet-head">
     <div class="sheet-brand">
@@ -196,6 +234,13 @@
       </div>
     </div>
 
+
+    <div class="field">
+      <span class="field-label" id="spanLabel">Focus box width</span>
+      <!-- Generated from GembaFretboard.FOCUS_SPANS -->
+      <div class="segmented" id="spanSeg" role="radiogroup" aria-labelledby="spanLabel"></div>
+      <span class="field-hint">Tap a fret number on the neck to move the box there.</span>
+    </div>
 
     <div class="field">
       <span class="field-label" id="themeLabel">Theme</span>

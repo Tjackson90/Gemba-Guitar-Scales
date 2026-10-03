@@ -287,5 +287,83 @@ group("Playback sequence");
   check("A4 is 440 Hz", T.midiToFrequency(69) === 440);
 }
 
+/* -------------------------------------------------------------- chords -- */
+
+group("Chord catalogue");
+{
+  const MAJOR = [0, 2, 4, 5, 7, 9, 11];
+  const semis = (l) => T.mod12(MAJOR[(parseInt(l.replace(/\D/g, ""), 10) - 1) % 7] +
+    (l.match(/♯/g) || []).length - (l.match(/♭/g) || []).length);
+  const bad = [];
+  T.CHORDS.forEach((c) => T.degreeLabels(c).forEach((l, i) => { if (semis(l) !== c.intervals[i]) bad.push(c.id + " " + l); }));
+  check(`all ${T.CHORDS.length} chords: degree names match intervals`, bad.length === 0, bad);
+  const sets = new Set(T.CHORDS.map((c) => c.intervals.join(",")));
+  check("no two chords share an interval set", sets.size === T.CHORDS.length);
+  const triads = T.GROUPS.find((g) => g.id === "triads");
+  check("Triads group lists every triad", triads.items.length === T.CHORDS.filter((c) => c.family === "triad").length);
+  check("C augmented triad as a scale: C E G#", same(notes(key(PC.C, "triad-aug")), ["C", "E", "G#"]));
+  check("triad scale degrees 1 b3 b5 for diminished", same(degrees(key(PC.B, "triad-dim")), ["1", "b3", "b5"]));
+}
+
+group("Chord-tone overlay");
+{
+  const g = key(PC.G, "major");
+  const am7 = T.createChord(g, 2, "m7");
+  check("ii7 in G is Am7", am7.symbol === "Am7");
+  check("Am7 tones A C E G", same(am7.tones.map((t) => ascii(t.note)), ["A", "C", "E", "G"]));
+  check("Am7 chord degrees 1 b3 5 b7", same(am7.tones.map((t) => ascii(t.degree)), ["1", "b3", "5", "b7"]));
+  check("Am7 fits G major", am7.fitsScale);
+  check("Am7 marks C (pc 0) as a chord tone", am7.isChordTone(0) && !am7.isChordTone(2));
+
+  const c = key(PC.C, "major");
+  const E = T.createChord(c, 4, "maj");
+  check("III major in C is E G# B (not Ab)", same(E.tones.map((t) => ascii(t.note)), ["E", "G#", "B"]));
+  check("E major does not fit C major; G# flagged out", !E.fitsScale && !E.tones[1].inScale);
+
+  const triads = T.diatonicChords(c, "triad").map((d) => d.chords.find((x) =>
+    ["maj", "min", "dim"].indexOf(x.chord.id) !== -1));
+  check("C major stacked triads: C Dm Em F G Am B°",
+    same(triads.map((t) => ascii(t.symbol)), ["C", "Dm", "Em", "F", "G", "Am", "B°"]),
+    triads.map((t) => t.symbol));
+  check("their numerals: I ii iii IV V vi vii°",
+    same(triads.map((t) => t.roman), ["I", "ii", "iii", "IV", "V", "vi", "vii°"]));
+
+  const sevenths = T.diatonicChords(c, "seventh").map((d) => d.chords.map((x) => ascii(x.symbol)));
+  check("Cmaj7 and G7 are diatonic to C; Bm7b5 too",
+    sevenths[0].indexOf("Cmaj7") !== -1 && sevenths[4].indexOf("G7") !== -1 && sevenths[6].indexOf("Bm7b5") !== -1);
+  check("C augmented is not diatonic to C major",
+    T.diatonicChords(c).every((d) => d.chords.every((x) => x.chord.id !== "aug" || d.offset !== 0)));
+
+  const am = key(PC.A, "harmonic-minor");
+  const fifth = T.diatonicChords(am, "triad")[4].chords.map((x) => ascii(x.symbol));
+  check("A harmonic minor has a major V (E)", fifth.indexOf("E") !== -1, fifth);
+  check("chord follows the key: V in D major is A", T.createChord(key(PC.D, "major"), 7, "maj").symbol === "A");
+  check("unknown chord id gives null", T.createChord(c, 0, "nope") === null);
+}
+
+/* ------------------------------------------------------- position focus -- */
+
+group("Position focus");
+{
+  const fb = F.createFretboard({ fretCount: 12 });
+  check("box clamps at the nut", same(F.clampFocus(-3, 5, 12), { start: 0, end: 4, span: 5 }));
+  check("box clamps at the last fret", same(F.clampFocus(11, 5, 12), { start: 8, end: 12, span: 5 }));
+
+  // A minor pentatonic, 5th position (frets 5-8): the classic box 1.
+  const am = key(PC.A, "minor-pentatonic");
+  const box = F.positionSequence(fb, am.pitchClasses, F.clampFocus(5, 4, 12), "up");
+  check("box 1 has 12 notes", box.length === 12, box.length);
+  check("starts on low E fret 5 (A2)", box[0].string === 0 && box[0].fret === 5 && T.midiName(box[0].midi) === "A2");
+  check("ends on high E fret 8 (C5)", box[11].string === 5 && box[11].fret === 8);
+  check("each pitch once, ascending", box.every((n, i) => i === 0 || n.midi > box[i - 1].midi));
+  check("down reverses", same(F.positionSequence(fb, am.pitchClasses, F.clampFocus(5, 4, 12), "down"), box.slice().reverse()));
+
+  // Open position: B string open (B3) and G string fret 4 (B3) - lower string wins.
+  const g = F.positionSequence(fb, [11], F.clampFocus(0, 5, 12), "up").find((n) => n.midi === 59);
+  check("shared pitch goes to the lower string", g.string === 3 && g.fret === 4);
+  check("chord arpeggio Am7 from A2", same(F.arpeggio(9, [0, 3, 7, 10], "up").map((m) => T.midiName(m)),
+    ["A2", "C3", "E3", "G3", "A3"]));
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
