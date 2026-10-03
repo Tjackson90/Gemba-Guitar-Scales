@@ -256,6 +256,11 @@ button {
   white-space: nowrap;
 }
 
+/* While a progression plays, the root and scale name show the current
+   step, tinted so it reads as "now playing" rather than a new selection. */
+.toolbar.is-following .root-btn { border-color: var(--accent); }
+.toolbar.is-following .scale-btn-name { color: var(--accent); }
+
 /* Scale: the tuner's bare "Standard ⌄" text button. */
 .scale-btn {
   flex: 0 1 auto;

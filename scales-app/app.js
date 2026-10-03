@@ -177,9 +177,12 @@
   }
 
   function renderToolbar() {
-    $("rootNote").textContent = key.rootName;
+    // While a progression plays these name the current step (see showStep).
+    if (shownStep === -1) {
+      $("rootNote").textContent = key.rootName;
+      $("scaleName").textContent = key.scale.name;
+    }
     $("rootBtn").setAttribute("aria-label", "Root note " + key.rootName + ". Change root");
-    $("scaleName").textContent = key.scale.name;
     $("scaleBtn").setAttribute("aria-label", "Scale " + key.scale.name + ". Change scale");
 
     const modeBtn = $("modeBtn");
@@ -977,11 +980,19 @@
   /** Scrolls the neck so the whole box is in view, centring it if it was not. */
   function revealFocus() {
     const f = currentFocus();
-    const x = f && view.spanX(f.start, f.end);
+    if (f) revealSpan(f);
+  }
+
+  /**
+   * Scrolls the neck to a box. Unless `always`, a box already fully on
+   * screen stays put; otherwise it is centred.
+   */
+  function revealSpan(f, always) {
+    const x = view.spanX(f.start, f.end);
     if (!x) return;
     const viewL = scroller.scrollLeft;
     const viewR = viewL + scroller.clientWidth;
-    if (x.left >= viewL + 4 && x.right <= viewR - 4) return;
+    if (!always && x.left >= viewL + 4 && x.right <= viewR - 4) return;
     scroller.scrollTo({ left: (x.left + x.right) / 2 - scroller.clientWidth / 2, behavior: "smooth" });
   }
 
@@ -1088,12 +1099,24 @@
     return items;
   }
 
+  /**
+   * A new progression step: the neck, box, legend and toolbar all follow it,
+   * and the board scrolls so the step's box is centred on screen.
+   */
   function showStep(item) {
+    const first = shownStep === -1;
     shownStep = item.step;
     const st = progSteps[item.step];
-    view.render(st.key, state.displayMode, state.showChromatic, { chord: null, focus: progPlan[item.step].focus });
+    const focus = progPlan[item.step].focus;
+    view.render(st.key, state.displayMode, state.showChromatic, { chord: null, focus });
     renderStepLegend(st, item.step);
     view.setSounding(null);
+    revealSpan(focus, !first);
+
+    // The toolbar names the step being played; finishPlayback restores it.
+    $("rootNote").textContent = st.key.rootName;
+    $("scaleName").textContent = st.name.slice(st.key.rootName.length + 1);
+    document.querySelector(".toolbar").classList.add("is-following");
   }
 
   function renderStepLegend(st, index) {
@@ -1126,8 +1149,10 @@
       shownStep = -1;
       progSteps = null;
       progPlan = null;
+      document.querySelector(".toolbar").classList.remove("is-following");
       renderBoard();
       renderLegend();
+      renderToolbar();
     }
   }
 
