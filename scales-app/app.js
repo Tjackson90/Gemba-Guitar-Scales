@@ -76,6 +76,7 @@
     focusSpan: Number(pick(store.get("focusSpan"), Fret.FOCUS_SPANS.map(String), "5")),
     focusStep: pick(store.get("focusStep"), ["shape", "fret"], "shape"),
     loop: store.get("loop", "0") === "1",
+    leftHanded: store.get("lefty", "0") === "1",
 
     // Progression mode. Built-ins by id; customs as "custom:<id>".
     progressionId: store.get("progression", "") || null,
@@ -141,15 +142,27 @@
   const scroller = $("boardScroll");
   const view = window.GembaBoardView.create(scroller, onCellTap, onFretTap);
 
+  let builtMirrored = null;   // how the board on screen was last drawn
+
   function buildBoard() {
     board = Fret.createFretboard({ tuning: "standard", fretCount: state.fretRange });
-    const ratio = scroller.scrollWidth > scroller.clientWidth
-      ? scroller.scrollLeft / (scroller.scrollWidth - scroller.clientWidth) : 0;
 
-    view.build(board);
+    // Remember how far along the neck (0 = nut) the view is, so a rebuild -
+    // including flipping hands - keeps the same frets on screen. A fresh
+    // board starts at the nut, which for a lefty is the right-hand end.
+    const max = scroller.scrollWidth - scroller.clientWidth;
+    let along = 0;
+    if (builtMirrored !== null && max > 0) {
+      const r = scroller.scrollLeft / max;
+      along = builtMirrored ? 1 - r : r;
+    }
+
+    view.build(board, state.leftHanded);
+    builtMirrored = state.leftHanded;
     view.render(key, state.displayMode, state.showChromatic, overlay());
 
-    scroller.scrollLeft = ratio * Math.max(0, scroller.scrollWidth - scroller.clientWidth);
+    const newMax = Math.max(0, scroller.scrollWidth - scroller.clientWidth);
+    scroller.scrollLeft = (state.leftHanded ? 1 - along : along) * newMax;
     updateNav();
   }
 
@@ -230,6 +243,7 @@
     syncSeg($("ringSeg"), "value", state.ring);
     $("chromaticToggle").setAttribute("aria-checked", String(state.showChromatic));
     $("tapSoundToggle").setAttribute("aria-checked", String(state.tapSound));
+    $("leftyToggle").setAttribute("aria-checked", String(state.leftHanded));
 
     const playing = state.playbackState === "playing";
     $("playBtn").classList.toggle("is-playing", playing);
@@ -713,7 +727,7 @@
 
     if (state.theme !== before.theme) applyTheme();
 
-    if (state.fretRange !== before.fretRange) buildBoard();
+    if (state.fretRange !== before.fretRange || state.leftHanded !== before.leftHanded) buildBoard();
     else if (chordChanged || focusChanged || state.displayMode !== before.displayMode ||
              state.showChromatic !== before.showChromatic) renderBoard();
 
@@ -743,6 +757,7 @@
     store.set("focusSpan", state.focusSpan);
     store.set("focusStep", state.focusStep);
     store.set("loop", state.loop ? "1" : "0");
+    store.set("lefty", state.leftHanded ? "1" : "0");
     store.set("progression", state.progressionId || "");
     store.set("progStyle", state.progStyle);
     store.set("progMove", state.progMove);
@@ -924,19 +939,24 @@
     const whole = max <= 1;
     const f = currentFocus();
 
-    // In focus mode the arrows walk the box a fret at a time.
+    // The arrows point where things move on screen. Left-handed, the nut is
+    // on the right, so the left arrow heads up the neck.
+    const upNeck = state.leftHanded ? left : right;
+    const downNeck = state.leftHanded ? right : left;
+
+    // In focus mode the arrows walk the box (a shape or a fret at a time).
     if (f) {
       const byShape = state.focusStep === "shape";
-      left.disabled = focusTarget(-1) === null;
-      right.disabled = focusTarget(1) === null;
-      left.setAttribute("aria-label", byShape ? "Previous shape" : "Move the box toward the nut");
-      right.setAttribute("aria-label", byShape ? "Next shape" : "Move the box toward the body");
+      downNeck.disabled = focusTarget(-1) === null;
+      upNeck.disabled = focusTarget(1) === null;
+      downNeck.setAttribute("aria-label", byShape ? "Previous shape" : "Move the box toward the nut");
+      upNeck.setAttribute("aria-label", byShape ? "Next shape" : "Move the box toward the body");
       left.title = right.title = "";
     } else {
       left.disabled = scroller.scrollLeft <= 1;
       right.disabled = scroller.scrollLeft >= max - 1;
-      left.setAttribute("aria-label", "Toward the nut");
-      right.setAttribute("aria-label", "Toward the body");
+      downNeck.setAttribute("aria-label", "Toward the nut");
+      upNeck.setAttribute("aria-label", "Toward the body");
       left.title = right.title = whole ? "The whole neck is in view" : "";
     }
     $("rotateHint").classList.toggle("is-needed", !whole);
@@ -1008,8 +1028,9 @@
     set({ focusOn: true, focusStart: Fret.clampFocus(fret, state.focusSpan, state.fretRange).start });
   }
 
+  /** dir is on screen: -1 left, +1 right (the keys and arrows both mean that). */
   function nudge(dir) {
-    if (state.focusOn) { moveFocus(dir); return; }
+    if (state.focusOn) { moveFocus(state.leftHanded ? -dir : dir); return; }
     // Roughly four frets per press, whatever the board's scale.
     const g = view.geometry;
     const step = g ? (g.fretX[Math.min(5, g.fretX.length - 1)] - g.fretX[1]) : scroller.clientWidth * 0.5;
@@ -1335,6 +1356,7 @@
 
   $("chromaticToggle").addEventListener("click", () => set({ showChromatic: !state.showChromatic }));
   $("tapSoundToggle").addEventListener("click", () => set({ tapSound: !state.tapSound }));
+  $("leftyToggle").addEventListener("click", () => set({ leftHanded: !state.leftHanded }));
 
   $("playBtn").addEventListener("click", () => {
     if (state.playbackState === "playing") stopPlayback();

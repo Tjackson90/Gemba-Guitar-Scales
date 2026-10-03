@@ -33,8 +33,13 @@ window.GembaBoardView = (function () {
     let geometry = null;
     let last = { mode: null, chromatic: null };
 
-    /** Lays the board out to fill the scroller, overflowing sideways if needed. */
-    function measure(board) {
+    /**
+     * Lays the board out to fill the scroller, overflowing sideways if needed.
+     * Everything is measured right-handed (nut on the left); X() and span()
+     * then mirror positions for left-handed mode. Only positions move - text
+     * is never flipped, so labels stay readable.
+     */
+    function measure(board, mirror) {
       const availW = scroller.clientWidth;
       const availH = scroller.clientHeight;
       const numberRow = 26;
@@ -63,9 +68,18 @@ window.GembaBoardView = (function () {
       const narrowest = weights[weights.length - 1] * unit;
       const r = Math.min(rowH * 0.4, narrowest * 0.4, 30);
 
+      const X = (x) => (mirror ? width - x : x);
+
       return {
-        width, height, rowH, openW, fretX, r, padX,
+        width, height, rowH, openW, fretX, r, padX, mirror,
         top: numberRow + padY,
+        X,
+        /** A horizontal span [a, b] as an SVG x / width, mirrored if need be. */
+        span(a, b) {
+          const p = X(a);
+          const q = X(b);
+          return { x: Math.min(p, q), width: Math.abs(q - p) };
+        },
         numberRow,
         cx(fret) {
           return fret === 0 ? padX + openW / 2 : (fretX[fret - 1] + fretX[fret]) / 2;
@@ -74,13 +88,13 @@ window.GembaBoardView = (function () {
       };
     }
 
-    function build(board) {
-      const g = measure(board);
+    function build(board, mirror) {
+      const g = measure(board, !!mirror);
       geometry = g;
       if (root) root.remove();
 
       root = svg("svg", {
-        class: "fretboard",
+        class: "fretboard" + (g.mirror ? " is-mirrored" : ""),
         width: g.width,
         height: g.height,
         viewBox: `0 0 ${g.width} ${g.height}`,
@@ -95,15 +109,16 @@ window.GembaBoardView = (function () {
       /* ---- static layer ---- */
       const stat = svg("g", { class: "fb-static" }, root);
 
+      const wood = g.span(nut, end);
       svg("rect", {
-        class: "fb-wood", x: nut, y: boardTop, width: end - nut, height: boardBottom - boardTop, rx: 6
+        class: "fb-wood", x: wood.x, y: boardTop, width: wood.width, height: boardBottom - boardTop, rx: 6
       }, stat);
 
       // Inlays sit between the strings so note circles never cover them.
       for (let f = 1; f <= board.fretCount; f++) {
         const m = window.GembaFretboard.markerAt(f);
         if (!m) continue;
-        const x = g.cx(f);
+        const x = g.X(g.cx(f));
         const dotR = Math.max(3, g.rowH * 0.075);
         const ys = m === 2
           ? [boardTop + g.rowH * 2, boardTop + g.rowH * 4]
@@ -112,16 +127,18 @@ window.GembaBoardView = (function () {
       }
 
       for (let f = 1; f <= board.fretCount; f++) {
-        svg("line", { class: "fb-fret", x1: g.fretX[f], x2: g.fretX[f], y1: boardTop, y2: boardBottom }, stat);
+        const x = g.X(g.fretX[f]);
+        svg("line", { class: "fb-fret", x1: x, x2: x, y1: boardTop, y2: boardBottom }, stat);
       }
-      svg("rect", { class: "fb-nut", x: nut - 3, y: boardTop - 2, width: 6, height: boardBottom - boardTop + 4, rx: 2 }, stat);
+      const nutSpan = g.span(nut - 3, nut + 3);
+      svg("rect", { class: "fb-nut", x: nutSpan.x, y: boardTop - 2, width: nutSpan.width, height: boardBottom - boardTop + 4, rx: 2 }, stat);
 
       // Strings thicken toward the low E (bottom row).
       board.displayOrder.forEach((s, row) => {
         const y = g.cy(row);
         svg("line", {
           class: "fb-string",
-          x1: g.padX + g.openW * 0.12, x2: end, y1: y, y2: y,
+          x1: g.X(g.padX + g.openW * 0.12), x2: g.X(end), y1: y, y2: y,
           "stroke-width": (1 + row * 0.38).toFixed(2)
         }, stat);
       });
@@ -131,13 +148,14 @@ window.GembaBoardView = (function () {
       for (let f = 0; f <= board.fretCount; f++) {
         const t = svg("text", {
           class: "fb-num" + (window.GembaFretboard.markerAt(f) ? " is-marker" : "") + (f === 0 ? " is-open" : ""),
-          x: g.cx(f), y: g.numberRow - 6, "text-anchor": "middle"
+          x: g.X(g.cx(f)), y: g.numberRow - 6, "text-anchor": "middle"
         }, nums);
         t.textContent = f === 0 ? "open" : String(f);
 
         const left = f === 0 ? g.padX : g.fretX[f - 1];
         const right = f === 0 ? g.fretX[0] : g.fretX[f];
-        const hit = svg("rect", { class: "fb-num-hit", x: left, y: 0, width: right - left, height: g.numberRow + 6 }, nums);
+        const hs = g.span(left, right);
+        const hit = svg("rect", { class: "fb-num-hit", x: hs.x, y: 0, width: hs.width, height: g.numberRow + 6 }, nums);
         hit.addEventListener("pointerdown", (e) => {
           if (e.pointerType === "mouse" && e.button !== 0) return;
           onFretTap && onFretTap(f);
@@ -157,7 +175,7 @@ window.GembaBoardView = (function () {
       cells = board.positions().map((p) => {
         const node = svg("g", {
           class: "cell",
-          transform: `translate(${g.cx(p.fret).toFixed(1)} ${g.cy(p.row).toFixed(1)})`
+          transform: `translate(${g.X(g.cx(p.fret)).toFixed(1)} ${g.cy(p.row).toFixed(1)})`
         }, layer);
         node.dataset.midi = p.midi;
 
@@ -248,19 +266,20 @@ window.GembaBoardView = (function () {
       const g = geometry;
       const left = focus.start === 0 ? g.padX : g.fretX[focus.start - 1];
       const right = focus.end === 0 ? g.fretX[0] : g.fretX[focus.end];
-      focusRect.setAttribute("x", (left - 3).toFixed(1));
-      focusRect.setAttribute("width", (right - left + 6).toFixed(1));
+      const box = g.span(left - 3, right + 3);
+      focusRect.setAttribute("x", box.x.toFixed(1));
+      focusRect.setAttribute("width", box.width.toFixed(1));
       focusRect.setAttribute("class", "fb-focus");
     }
 
-    /** x range of a fret span, for scrolling the box into view. */
+    /** On-screen x range of a fret span (mirrored if need be), for scrolling. */
     function spanX(start, end) {
       const g = geometry;
       if (!g) return null;
-      return {
-        left: start === 0 ? 0 : g.fretX[start - 1],
-        right: end === 0 ? g.fretX[0] : g.fretX[Math.min(end, g.fretX.length - 1)]
-      };
+      const sp = g.span(
+        start === 0 ? 0 : g.fretX[start - 1],
+        end === 0 ? g.fretX[0] : g.fretX[Math.min(end, g.fretX.length - 1)]);
+      return { left: sp.x, right: sp.x + sp.width };
     }
 
     /**
