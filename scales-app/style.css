@@ -340,7 +340,18 @@ button {
 .play-opts .layer-btn { padding: 0 10px; }
 
 /* Intervals / notes: one button showing what the neck is labelled with. */
-.mode-btn { width: auto; min-width: 56px; padding: 0 10px; white-space: nowrap; font-family: var(--font-mono); font-size: 13px; color: var(--ink); }
+/* Sized to its label (Android draws "1 3 5" wider than desktop), so the
+   label sits centred. Doubled class: .tool-btn below would pin it to 44px. */
+.tool-btn.mode-btn {
+  width: auto;
+  min-width: 56px;
+  padding: 0 12px;
+  place-content: center;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--ink);
+}
 .mode-btn .mode-note { display: none; }
 .mode-btn.is-notes .mode-int { display: none; }
 .mode-btn.is-notes .mode-note { display: inline; }
@@ -654,15 +665,6 @@ button {
 
 .legend::-webkit-scrollbar { display: none; }
 
-.legend-title {
-  margin-right: 10px;
-  font-size: 12px;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
-  color: var(--muted);
-  white-space: nowrap;
-}
-
 .chip {
   flex: 0 0 auto;
   min-width: 42px;
@@ -682,7 +684,6 @@ button {
 .chip.is-root .chip-note { color: var(--root); }
 
 .legend.is-chord .chip:not(.is-root) .chip-note { color: var(--chord); }
-.legend.is-chord .legend-title { color: var(--chord); }
 .chip.is-out { border-style: dashed; border-color: var(--chord); background: transparent; }
 
 /* Which shape the focus box is on. */

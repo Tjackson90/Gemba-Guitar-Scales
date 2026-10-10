@@ -265,28 +265,13 @@
     const legend = $("legend");
     legend.innerHTML = "";
 
-    const title = document.createElement("span");
-    title.className = "legend-title";
-    title.textContent = chord
-      ? `${chord.symbol} \u00B7 in ${key.rootName} ${key.scale.name}`
-      : `${key.rootName} ${key.scale.name}`;
-    legend.appendChild(title);
+    // No names here: the toolbar already shows the root, scale, chord and
+    // progression. The strip is just the notes, plus where the box sits -
+    // the one thing the toolbar does not say.
     legend.classList.toggle("is-chord", !!chord);
 
-    const prog = getProgression(state.progressionId);
-    if (prog) {
-      const tag = document.createElement("span");
-      tag.className = "legend-shape";
-      // Short progressions spell out; long ones (12-bar, Canon) go by name.
-      tag.textContent = prog.steps.length <= 5
-        ? numerals(prog.steps) + " \u00B7 " +
-          Theory.progressionSteps(key, prog.steps, state.progStyle).map((st) => st.key.rootName).join(" ")
-        : prog.name;
-      legend.appendChild(tag);
-    }
-
     const shape = shapeInfo();
-    if (shape && !prog) {
+    if (shape) {
       const tag = document.createElement("span");
       tag.className = "legend-shape";
       tag.textContent = shape;
@@ -991,18 +976,18 @@
     if (next !== null) set({ focusStart: next });
   }
 
-  /** "Shape 2 of 5 · from ♭3 · frets 3–7", or just the frets off a shape. */
+  /** "Shape 2 of 5 · from ♭3", or null when the box is not on a shape. */
   function shapeInfo() {
     const f = currentFocus();
     if (!f) return null;
     const list = shapes();
     const i = list.findIndex((x) => x.start === f.start);
-    const frets = f.start === f.end ? "fret " + f.start : "frets " + f.start + "\u2013" + f.end;
-    if (i === -1) return frets;
+    // The box's frets are on the Box button up top; off a shape, say nothing.
+    if (i === -1) return null;
     const from = chord
       ? chord.byInterval[Theory.mod12(list[i].pc - chord.rootPc)].degree
       : key.byInterval[Theory.mod12(list[i].pc - key.rootPc)].degree;
-    return "Shape " + (i + 1) + " of " + list.length + " \u00B7 from " + from + " \u00B7 " + frets;
+    return "Shape " + (i + 1) + " of " + list.length + " \u00B7 from " + from;
   }
 
   /** Scrolls the neck so the whole box is in view, centring it if it was not. */
@@ -1159,12 +1144,10 @@
     legend.classList.remove("is-chord");
     const where = document.createElement("span");
     where.className = "legend-step";
+    // The step's name (C Lydian) is in the toolbar while it plays; here just
+    // where we are in the progression.
     where.textContent = `${index + 1}/${progSteps.length} \u00B7 ${st.label}`;
     legend.appendChild(where);
-    const title = document.createElement("span");
-    title.className = "legend-title";
-    title.textContent = st.name;
-    legend.appendChild(title);
     st.key.tones.forEach((t) => {
       const chip = document.createElement("span");
       chip.className = "chip" + (t.interval === 0 ? " is-root" : "");
