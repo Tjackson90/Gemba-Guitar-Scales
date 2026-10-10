@@ -340,7 +340,7 @@ button {
 .play-opts .layer-btn { padding: 0 10px; }
 
 /* Intervals / notes: one button showing what the neck is labelled with. */
-.mode-btn { width: 64px; font-family: var(--font-mono); font-size: 13px; color: var(--ink); }
+.mode-btn { width: auto; min-width: 56px; padding: 0 10px; white-space: nowrap; font-family: var(--font-mono); font-size: 13px; color: var(--ink); }
 .mode-btn .mode-note { display: none; }
 .mode-btn.is-notes .mode-int { display: none; }
 .mode-btn.is-notes .mode-note { display: inline; }
@@ -478,13 +478,13 @@ button {
   overflow: auto;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
-  scrollbar-width: thin;
-  scrollbar-color: var(--border) transparent;
+  /* No scrollbars: they take layout space, so one appearing would resize
+     the board it scrolls. Swiping, the arrows and shift+wheel still scroll. */
+  scrollbar-width: none;
   outline: none;
 }
 
-.board-scroll::-webkit-scrollbar { height: 6px; width: 6px; }
-.board-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+.board-scroll::-webkit-scrollbar { display: none; }
 
 /* Auto margins centre the board without clipping when it overflows. */
 .fretboard {

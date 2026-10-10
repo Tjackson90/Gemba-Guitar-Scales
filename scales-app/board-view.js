@@ -26,6 +26,11 @@ window.GembaBoardView = (function () {
     return w;
   }
 
+  /** Whole pixels for a measured size, never past `avail` when it fits. */
+  function fitTo(raw, avail) {
+    return raw <= avail + 0.5 ? Math.min(avail, Math.ceil(raw - 0.01)) : Math.ceil(raw);
+  }
+
   function create(scroller, onTap, onFretTap) {
     let root = null;
     let cells = [];
@@ -62,9 +67,12 @@ window.GembaBoardView = (function () {
       const fretX = [padX + openW];            // fretX[0] is the nut
       weights.forEach((w) => fretX.push(fretX[fretX.length - 1] + w * unit));
 
-      const width = Math.ceil(fretX[fretX.length - 1] + padX);
+      // A board that fits is sized to the space exactly. Rounding a fitted
+      // 844.9999px up to 845 + 1 would overflow by a pixel, bring up a
+      // scrollbar, shrink the space and trigger a rebuild - a flicker loop.
       const boardH = rowH * 6;
-      const height = Math.ceil(numberRow + boardH + padY * 2);
+      const width = fitTo(fretX[fretX.length - 1] + padX, availW);
+      const height = fitTo(numberRow + boardH + padY * 2, availH);
       const narrowest = weights[weights.length - 1] * unit;
       const r = Math.min(rowH * 0.4, narrowest * 0.4, 30);
 

@@ -1367,15 +1367,24 @@
   $("navRight").addEventListener("click", () => nudge(1));
   scroller.addEventListener("scroll", updateNav, { passive: true });
 
-  // Rebuild only when the space for the board really changes size.
+  // Rebuild only when the space for the board really changes size. As a
+  // last line of defence against layout feedback loops, a size that just
+  // bounces back to the one before last (A -> B -> A within a moment) is
+  // ignored rather than rebuilt for again.
   let lastSize = "";
+  let prevSize = "";
+  let lastBuildAt = 0;
   let resizeFrame = 0;
   const onResize = () => {
     cancelAnimationFrame(resizeFrame);
     resizeFrame = requestAnimationFrame(() => {
       const size = scroller.clientWidth + "x" + scroller.clientHeight;
       if (size === lastSize) return;
+      const now = performance.now();
+      if (size === prevSize && now - lastBuildAt < 400) return;
+      prevSize = lastSize;
       lastSize = size;
+      lastBuildAt = now;
       buildBoard();
     });
   };
